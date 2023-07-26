@@ -1,0 +1,6 @@
+holidays>=0.28
+matplotlib>=3.7.2
+numpy>=1.25.1
+pandas>=2.0.3
+pyro-ppl>=1.8.5
+torch>=2.0.1
