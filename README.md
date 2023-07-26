@@ -13,13 +13,17 @@ command
 to create a symlink to relevant datasets in this directory. This provides a
 homogeneous interface to the datasets on different systems where the datasets
 might be saved in different locations. Additionally, this directory easily
-transfers to any repository using the same convention.
+transfers to any repository using the same convention. As side effect all code
+in this repository needs to be run from its main directory for the relative 
+paths to work.
+
+Naming conventions can be found in `data/datset_bib.py`
 
 ## Planned features
-- [ ] Port Dataset
+- [x] Port Dataset
   - [x] Dumb copy
-  - [ ] Review dataset code
-  - [ ] Dataset without PCC
+  - [x] Review dataset code
+- [ ] Dataset without PCC
 - [ ] Linear layer proof of concept
 - [ ] Functional model wrapper
 
