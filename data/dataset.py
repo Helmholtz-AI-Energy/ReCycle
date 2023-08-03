@@ -6,12 +6,12 @@ from torch.nn.functional import one_hot, l1_loss
 
 from .normalizer import Normalizer, MinMax, AbsMax
 from .data_cleaner import clean_dataframe
-from .pslp_datasets import LooseTypePSLPDataset, LooseTypeLastPSLPDataset
-from .dataset_bib import get_dataset_spec
+from .pslp_datasets import LooseTypeLastPSLPDataset
+from specs.dataset_specs import ResidualDatasetSpec
 
 from torch import Tensor
 from torch.utils.data import Dataset
-from typing import List, Type, Optional, Dict, Tuple, Union
+from typing import List, Type, Optional, Dict, Tuple, Union, TypeVar
 from pandas import DataFrame
 from numpy import float32
 
@@ -21,41 +21,26 @@ logger = logging.getLogger(__name__)
 
 
 class ResidualDataset(Dataset):
-    def __init__(self,
-                 data: DataFrame,
-                 historic_window: int,
-                 forecast_window: int,
-                 features_per_step: int,
-                 target: List[str],
-                 metadata: Dict[str, str],
-                 universal_holidays: bool,
-                 normalizer: Type[Normalizer] = MinMax,
-                 residual_normalizer: Type[Normalizer] = AbsMax,
-                 pslp_dataset=LooseTypeLastPSLPDataset,
-                 pslp_cycles: int = 3,
-                 pslp_cycle_len: int = 7,
-                 reduce: Optional[float] = None,
-                 device: Optional[torch.device] = None) -> None:
-        assert 'time' in metadata, 'time input_data required for residual profiling'
+    def __init__(self, data: DataFrame, dataset_spec: ResidualDatasetSpec) -> None:
+        dataset_spec.check_validity()
+        data_spec = dataset_spec.data_spec
 
         # if reduce < 1 is given the set is reduced to the given fraction
         data = data.reset_index(drop=True)  # Quenches SettingWithCopyWarning
         logger.debug(data)
-        if reduce is not None:
-            assert (0 <= reduce <= 1), f'{reduce=} should be between 0 and 1'
-            data = data[:int(len(data) * reduce)]
+        if dataset_spec.reduce is not None:
+            data = data[:int(len(data) * dataset_spec.reduce)]
 
         # input_data and metadata_dict column names
-        self.target = target
-        self.metadata_columns = metadata
-        self.time = self.metadata_columns['time']
-        self._universal_holidays = universal_holidays
+        self.target = data_spec.data_column_names
+        self.time_column = data_spec.time_column_name
+        self._universal_holidays = data_spec.universal_holidays
 
         # input_data shape
-        self.historic_window = historic_window
-        self.forecast_window = forecast_window
+        self.historic_window = dataset_spec.historic_window
+        self.forecast_window = dataset_spec.forecast_window
         self.total_window = self.historic_window + self.forecast_window
-        self.features_per_step = features_per_step
+        self.features_per_step = dataset_spec.features_per_step
         self.stride = self.features_per_step
 
         # meta features
@@ -71,19 +56,19 @@ class ResidualDataset(Dataset):
         self.dataframe = data
 
         # pslp specifications
-        self.pslp_cycles = pslp_cycles  # nr of weeks/long cycles for pslp
-        self.pslp_cycle_len = pslp_cycle_len  # nr of days/primary cycles per week/long cycle
+        self.pslp_cycles = dataset_spec.pslp_cycles  # nr of weeks/long cycles for pslp
+        self.pslp_cycle_len = dataset_spec.pslp_cycle_len  # nr of days/primary cycles per week/long cycle
         self.pslp_window = self.pslp_cycles * self.pslp_cycle_len  # nr of primary cycles in pslp
 
         # raw input_data as tensor, make categories first dim
         self.unnormalized_data = torch.tensor(data[self.target].values).t()
 
         # initialize normalizer and get normalized input_data
-        self.norm = normalizer(self.unnormalized_data)
+        self.norm = dataset_spec.normalizer(self.unnormalized_data)
         self.normalized_data = self.norm(self.unnormalized_data)
 
         # reshape data into cycles (days)
-        self.categories = len(target)
+        self.categories = len(self.target)
         self.normalized_data = self.normalized_data.reshape(self.categories, -1, self.features_per_step)
         self.unnormalized_data = self.unnormalized_data.reshape(self.categories, -1, self.features_per_step)
 
@@ -97,8 +82,8 @@ class ResidualDataset(Dataset):
 
         # generate metadata_dict and pslp
         self.metadata = self._generate_metadata()
-        self.pslp_data = pslp_dataset(self.dataframe, self.pslp_cycles, self.target,
-                                      self.time, self.norm, self._universal_holidays)
+        self.pslp_data = dataset_spec.pslp_dataset(self.dataframe, self.pslp_cycles, self.target,
+                                                   self.time_column, self.norm, self._universal_holidays)
 
         # generate naive error estimate
         catergory_naive_mae = []
@@ -122,7 +107,7 @@ class ResidualDataset(Dataset):
         # self.residual_norm = residual_normalizer(self.normalized_data - self.pslp_data.get_local_pslp())
 
         # send to device
-        self.device = device
+        self.device = dataset_spec.device
         if self.device is not None:
             self.to(device=self.device)
 
@@ -187,7 +172,7 @@ class ResidualDataset(Dataset):
             holiday_data = torch.stack(holiday_data, dim=0)
 
         # get weekday annotation
-        weekdays = torch.tensor(self.dataframe.loc[0::self.features_per_step, self.time].dt.weekday.values,
+        weekdays = torch.tensor(self.dataframe.loc[0::self.features_per_step, self.time_column].dt.weekday.values,
                                 dtype=torch.int64)
         weekdays = one_hot(weekdays, num_classes=7).expand(self.categories, -1, -1)
 
@@ -250,57 +235,37 @@ class ResidualDataset(Dataset):
 
         return (train_data, valid_data, tests_data), (train_target, valid_target, tests_target)
 
+    SET = TypeVar('SET')
     @classmethod
-    def from_spec(
-            cls,
-            spec_name: str,
-            historic_window: int,
-            forecast_window: int,
-            features_per_step: int,
-            normalizer: Type[Normalizer] = MinMax,
-            residual_normalizer: Type[Normalizer] = AbsMax,
-            pslp_dataset=LooseTypeLastPSLPDataset,
-            pslp_cycles: int = 3,
-            pslp_cycle_len: int = 7,
-            train_share: float = 0.6,
-            tests_share: float = 0.2,
-            reduce: Optional[float] = None,
-            device: Optional[torch.device] = None
-    ) -> Tuple[Dataset, Dataset, Dataset]:
-        spec = get_dataset_spec(spec_name)
-        root_path, file_name, country_code, data_column_names, time_column_names, downsample_rate, split_by_category, \
-            remove_flatline = spec()
-        file_format_extension = '.csv'
+    def from_spec(cls: SET, spec: ResidualDatasetSpec) -> Tuple[SET, SET, SET]:
+        data_spec = spec.data_spec
 
-        file = root_path + file_name + file_format_extension
-        metadata_dict = dict(time=time_column_names)
-        target = data_column_names
-        country = country_code
+        metadata_dict = dict(time=data_spec.time_column_name)
 
         return cls.from_csv(
-            file=file,
-            historic_window=historic_window,
-            forecast_window=forecast_window,
-            features_per_step=features_per_step,
+            file=data_spec.full_file_path(file_extension='.csv'),
+            historic_window=spec.historic_window,
+            forecast_window=spec.forecast_window,
+            features_per_step=spec.features_per_step,
             metadata_dict=metadata_dict,
-            target=target,
-            normalizer=normalizer,
-            residual_normalizer=residual_normalizer,
-            pslp_dataset=pslp_dataset,
-            pslp_cycles=pslp_cycles,
-            pslp_cycle_len=pslp_cycle_len,
-            country=country,
-            downsample_rate=downsample_rate,
-            remove_flatline=remove_flatline,
-            split_by_category=split_by_category,
-            train_share=train_share,
-            tests_share=tests_share,
-            reduce=reduce,
-            device=device
+            target=data_spec.data_column_names,
+            normalizer=spec.normalizer,
+            residual_normalizer=spec.residual_normalizer,
+            pslp_dataset=spec.pslp_dataset,
+            pslp_cycles=spec.pslp_cycles,
+            pslp_cycle_len=spec.pslp_cycle_len,
+            country=data_spec.country_code,
+            downsample_rate=data_spec.downsample_rate,
+            remove_flatline=data_spec.remove_flatline,
+            split_by_category=data_spec.split_by_category,
+            train_share=spec.train_share,
+            tests_share=spec.tests_share,
+            reduce=spec.reduce,
+            device=spec.device
         )
 
     @classmethod
-    def from_csv(cls, file: Union[str, List[str]],
+    def from_csv(cls: SET, file: Union[str, List[str]],
                  historic_window: int,
                  forecast_window: int,
                  features_per_step: int,
@@ -318,7 +283,7 @@ class ResidualDataset(Dataset):
                  train_share: float = 0.6,
                  tests_share: float = 0.2,
                  reduce: Optional[float] = None,
-                 device: Optional[torch.device] = None) -> Tuple[Dataset, Dataset, Dataset]:
+                 device: Optional[torch.device] = None) -> Tuple[SET, SET, SET]:
         """
 
         :param file: dataset file or tuple of (training input_data file, validation input_data file, test input_data file)
