@@ -27,14 +27,14 @@ class ModelFramework:
             self,
             model_spec: ModelSpec,
             dataset_spec: DatasetSpec,
-            train_spec: TrainSpec,
+            # train_spec: TrainSpec,
             # For repeated runs the already built datasets can be reused
             premade_datasets: Optional[Tuple[ResidualDataset, ResidualDataset, ResidualDataset]] = None,
 ):
 
         self.model_spec = model_spec
         self.dataset_spec = dataset_spec
-        self.train_spec = train_spec
+        # self.train_spec = train_spec
 
         # Save input arguments for saving
         self.args = locals()
@@ -45,7 +45,7 @@ class ModelFramework:
 
         if premade_datasets is None:
             assert type(dataset_spec) == ResidualDatasetSpec, 'ResidualDataset requires ResidualDatasetSpec'
-            self.datasets = ResidualDataset.from_spec(dataset_spec)
+            self.datasets = dataset_spec.create_datasets()
         else:
             logger.info('Using premade datasets')
             self.datasets = premade_datasets
@@ -77,17 +77,17 @@ class ModelFramework:
     def dataset(self) -> ResidualDataset:
         return self.datasets[self._mode]
 
-    def train_model(self, train_spec: Optional[TrainSpec] = None):
+    def train_model(self, train_spec: Optional[TrainSpec]):
         """Train self.model on self.train_set for several epochs, also obtains the validation loss and returns both"""
-        if train_spec is None:
-            train_spec = self.train_spec
+        # if train_spec is None:
+        #     train_spec = self.train_spec
 
         # define training method
         train_spec.clean()
-        criterion = train_spec.loss()
+        criterion = train_spec.loss
         optimizer = train_spec.optimizer(
             self.model.parameters(),
-            lr=train_spec.learning_rate,
+            lr=10**train_spec.learning_rate,
             **train_spec.optimizer_args
         )
 
@@ -252,58 +252,58 @@ class ModelFramework:
         run.model.load_state_dict(state_dict)
         return run
 
-    def dropout_test_forecast(self, sample_nr: Optional[int] = 50) -> (Tensor, Tensor, Tensor):
-        self.mode('test')
-        dataset = self.dataset()
-        loader = DataLoader(dataset, batch_size=len(dataset))
-        batch = next(iter(loader))
-
-        # Set model to train mode so dropout is still applied
-        self.model.train()
-
-        predictions = []
-        with torch.no_grad():
-            for n in range(sample_nr):
-                cat_data = batch[-2]
-                single_prediction = self.model.predict(*batch[:-1])
-                prediction = dataset.norm.revert_normalization(prediction, cat_data)
-                predictions.append(single_prediction)
-
-        predictions = torch.stack(predictions, dim=0)
-
-        prediction = predictions.mean(dim=0)
-        error = predictions.std(dim=0)
-
-        input_reference = dataset.norm.revert_normalization(batch[0])
-        reference = dataset.norm.revert_normalization(batch[-1])
-
-        return prediction, error, input_reference, reference
-
-    def mc_dropout_test(self, idx: Optional[int] = None, sample_nr: Optional[int] = 50):
-        self.mode('test')
-        dataset = self.dataset()
-
-        idx = idx or randrange(0, len(dataset))
-
-        # Set model to train mode so dropout is still applied
-        self.model.train()
-
-        batch = dataset[idx]
-
-        predictions = []
-        with torch.no_grad():
-            for n in range(sample_nr):
-                cat_data = batch[-2]
-                single_prediction = self.model.predict(*batch[:-1])
-                prediction = dataset.norm.revert_normalization(prediction, cat_data)
-                predictions.append(single_prediction)
-
-        predictions = torch.stack(predictions, dim=0)
-
-        prediction = predictions.mean(dim=0)
-        error = predictions.std(dim=0)
-
-        input_reference = dataset.norm.revert_normalization(batch[0])
-        reference = dataset.norm.revert_normalization(batch[-1])
-
-        return prediction, error, input_reference, reference
+#    def dropout_test_forecast(self, sample_nr: Optional[int] = 50) -> (Tensor, Tensor, Tensor):
+#        self.mode('test')
+#        dataset = self.dataset()
+#        loader = DataLoader(dataset, batch_size=len(dataset))
+#        batch = next(iter(loader))
+#
+#        # Set model to train mode so dropout is still applied
+#        self.model.train()
+#
+#        predictions = []
+#        with torch.no_grad():
+#            for n in range(sample_nr):
+#                cat_data = batch[-2]
+#                single_prediction = self.model.predict(*batch[:-1])
+#                prediction = dataset.norm.revert_normalization(prediction, cat_data)
+#                predictions.append(single_prediction)
+#
+#        predictions = torch.stack(predictions, dim=0)
+#
+#        prediction = predictions.mean(dim=0)
+#        error = predictions.std(dim=0)
+#
+#        input_reference = dataset.norm.revert_normalization(batch[0])
+#        reference = dataset.norm.revert_normalization(batch[-1])
+#
+#        return prediction, error, input_reference, reference
+#
+#    def mc_dropout_test(self, idx: Optional[int] = None, sample_nr: Optional[int] = 50):
+#        self.mode('test')
+#        dataset = self.dataset()
+#
+#        idx = idx or randrange(0, len(dataset))
+#
+#        # Set model to train mode so dropout is still applied
+#        self.model.train()
+#
+#        batch = dataset[idx]
+#
+#        predictions = []
+#        with torch.no_grad():
+#            for n in range(sample_nr):
+#                cat_data = batch[-2]
+#                single_prediction = self.model.predict(*batch[:-1])
+#                prediction = dataset.norm.revert_normalization(prediction, cat_data)
+#                predictions.append(single_prediction)
+#
+#        predictions = torch.stack(predictions, dim=0)
+#
+#        prediction = predictions.mean(dim=0)
+#        error = predictions.std(dim=0)
+#
+#        input_reference = dataset.norm.revert_normalization(batch[0])
+#        reference = dataset.norm.revert_normalization(batch[-1])
+#
+#        return prediction, error, input_reference, reference

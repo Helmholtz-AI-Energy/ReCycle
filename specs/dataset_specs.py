@@ -26,7 +26,7 @@ class DataSpec:
     :param str time_column_name: name of the column containing the time-stamp
     :param Optional[List[str]] data_column_names: name of time-series data column, if None is provided all except
         time_column names are used
-    :param Optional[List[str]] metadata_column_names: names of columns with exogenous covariates or metadata
+    :param Optional[List[str]] metadata_column_names: names of columns with exogenous covariates or metadata_column_names
     :param Optional[str] country_code: two-letter ISO country code to determine holidays using the holidays package
     :param bool universal_holidays: only relevant if there is more than one data column. If True identical holidays
         are assumed for all countries, if False the column names must be the ISO country codes and are used to
@@ -74,7 +74,7 @@ class DatasetSpec:
 
     :param int historic_window: length of the historic window
     :param int forecast_window: length of the forecast window
-    :param int features_per_step: number of features of the time series, metadata features excluded
+    :param int features_per_step: number of features of the time series, metadata_column_names features excluded
     :param DataSpec data_spec: DataSpec for data specific information
     :param Type[Normalizer] normalizer: normalizer to use for the data
     :param float train_share: fraction of the data to use for train set
@@ -108,6 +108,17 @@ class DatasetSpec:
         if self.reduce is not None:
             assert 0 <= self.reduce, f'{self.reduce=} should be greater or equal 0'
             assert 1 >= self.reduce, f'{self.reduce=} should be smaller or equal 1'
+
+    # TODO: there should be some mechanism to use different dataset classes
+    def create_datasets(self, dataset_class: Optional[Type['TimeSeriesDataset']] = None)\
+            -> Tuple['TimeSeriesDataset', 'TimeSeriesDataset', 'TimeSeriesDataset']:
+        self.check_validity()
+
+        if dataset_class is None:
+            from data import ResidualDataset
+            dataset_class = ResidualDataset
+
+        return dataset_class.from_csv(dataset_spec=self)
 
 
 @dataclass

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class OneshotTransformer(Model):
     def __init__(self, model_spec: TransformerSpec):
         super(OneshotTransformer, self).__init__(model_spec=model_spec)
-        self.d_hid = model_spec.d_hid or model_spec.dim_feedforward
+        self.d_hid = model_spec.d_hidden or model_spec.dim_feedforward
 
         # Adjust for number of heads
         self.d_model *= model_spec.nheads

@@ -30,6 +30,7 @@ def spec_factory(
         forecast_window: int,
         features_per_step: int,
 
+        meta_features: Optional[int] = None,
         d_model: int = None,
         embedding: Optional[Union[str, FullEmbedding]] = None,
         embedding_args: Optional[dict] = None,
@@ -111,6 +112,7 @@ def spec_factory(
             forecast_window=forecast_window,
             features_per_step=features_per_step,
 
+            meta_features=meta_features,
             d_model=d_model,
             embedding=embedding,
             embedding_args=embedding_args,
@@ -130,6 +132,7 @@ def spec_factory(
             forecast_window=forecast_window,
             features_per_step=features_per_step,
 
+            meta_features=meta_features,
             d_model=d_model,
             embedding=embedding,
             residual_input=residual_input,
@@ -182,9 +185,14 @@ def spec_factory(
     # Prepare TrainSpec arguments
     if (custom_quantiles is not None) or (quantiles is not None):
         # quantiles will always overwrite loss to quantile loss
-        loss = get_quantile_loss(quantile_nr=quantiles, symmetric_quantiles=assume_symmetric_quantiles)
+        loss = get_quantile_loss(
+            custom_quantiles=custom_quantiles,
+            quantile_nr=quantiles,
+            symmetric_quantiles=assume_symmetric_quantiles
+        )
 
     patience = patience or epochs
+    optimizer_args = optimizer_args or {} #{'weight_decay': 0.1}
 
     # set up TrainSpec
     train_spec = TrainSpec(

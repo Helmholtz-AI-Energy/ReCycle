@@ -1,4 +1,4 @@
-from .dataset import ResidualDataset
+from .dataset import TimeSeriesDataset, ResidualDataset
 from .normalizer import MinMax, AbsMax, select_normalizer, Normalizer
 
 import logging

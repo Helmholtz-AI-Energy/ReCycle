@@ -24,10 +24,10 @@ class ModelSpec:
     :param str model_name: name of the model (mostly for labeling)
     :param int historic_window: length of the historic window
     :param int forecast_window: length of the forecast window
-    :param int features_per_step: number of features of the time series, metadata features excluded
+    :param int features_per_step: number of features of the time series, metadata_column_names features excluded
 
     :param int d_model: input dimension of the model after embedding
-    :param FullEmbedding embedding: embedding that combines data and metadata and projects to d_model
+    :param FullEmbedding embedding: embedding that combines data and metadata_column_names and projects to d_model
     :param bool residual_input: if True modify input to be residual
     :param bool residual_forecast: if True modify output to be residual
     :param Optional[Union[List[int], Tensor]] custom_quantiles: Specifies a list of quantile values
@@ -42,6 +42,7 @@ class ModelSpec:
 
     model_name: str
 
+    meta_features: Optional[int] = None
     d_model: int = None
     embedding: FullEmbedding = None
     residual_input: bool = True
@@ -53,19 +54,19 @@ class ModelSpec:
     device: torch.device = None
 
     def check_validity(self) -> None:
-        assert self.embedding.output_features == self.d_model,\
-            (f'Embedding features ({self.embedding.output_features}) do not match'
-             f'model input features ({self.d_model})')
-        assert self.embedding.input_features == self.features_per_step,\
-            (f'Embedding input features ({self.embedding.input_features} do not match '
-             f'data features ({self.features_per_step})')
+        assert self.embedding.input_features[0] == self.features_per_step,\
+            (f'Primary embedding input features ({self.embedding.input_features[0]} do not match '
+             f'data features ({self.features_per_step}))')
+        assert self.embedding.input_features[1] == self.meta_features, \
+            (f'Secondary embedding input features ({self.embedding.input_features[1]}) do not match '
+             f'meta features ({self.meta_features}))')
 
     @classmethod
     def from_embedding_name(
             cls: SPEC, *args,
-            features_per_step: int,
-            d_model: int,
             embedding: str,
+            features_per_step: int,
+            meta_features: Optional[int] = None,
             embedding_args: Optional[dict] = None,
             **kwargs
     ) -> SPEC:
@@ -73,9 +74,16 @@ class ModelSpec:
         embedding = select_embedding(
             name=embedding,
             input_features=features_per_step,
+            meta_features=meta_features,
             embedding_args=embedding_args
         )
-        return cls(*args, features_per_step=features_per_step, d_model=d_model, embedding=embedding, **kwargs)
+        return cls(
+            *args,
+            features_per_step=features_per_step,
+            meta_features=meta_features,
+            embedding=embedding,
+            **kwargs
+        )
 
 
 @dataclass

@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 
 if __name__ == '__main__':
     dataset_name = 'entsoe_de'
-    train_set, valid_set, tests_set = ResidualDataset.from_spec(
+    train_set, valid_set, tests_set = ResidualDataset.from_csv(
         spec_name=dataset_name,
         historic_window=2,
         forecast_window=1,

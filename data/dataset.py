@@ -1,13 +1,14 @@
 import torch
 import pandas as pd
 
+from abc import ABC, abstractmethod
 from operator import itemgetter
 from torch.nn.functional import one_hot, l1_loss
 
 from .normalizer import Normalizer, MinMax, AbsMax
 from .data_cleaner import clean_dataframe
 from .pslp_datasets import LooseTypeLastPSLPDataset
-from specs.dataset_specs import ResidualDatasetSpec
+from specs.dataset_specs import ResidualDatasetSpec, DatasetSpec
 
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -18,6 +19,24 @@ from numpy import float32
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+D = TypeVar('D')
+
+
+class TimeSeriesDataset(Dataset, ABC):
+    @abstractmethod
+    def __init__(self, data: DataFrame, dataset_spec: ResidualDatasetSpec) -> None:
+        """"""
+
+    @classmethod
+    @abstractmethod
+    def from_spec(cls: D, spec: ResidualDatasetSpec) -> Tuple[D, D, D]:
+        """"""
+
+    @abstractmethod
+    def to(self, device: Optional[torch.device] = None, *args, **kwargs) -> None:
+        """"""
 
 
 class ResidualDataset(Dataset):
@@ -186,31 +205,16 @@ class ResidualDataset(Dataset):
         logger.info(f'Dataset length: {self.__len__()}')
 
     @staticmethod
-    def prepare_dataframe(dataframe: DataFrame, metadata: Dict[str, str], target: Optional[List[str]] = None,
-                          country: Optional[str] = None, downsample_rate: Optional[int] = None,
-                          remove_flatline: bool = False):
-        if target is None:
-            logger.info('Inferring target')
-            # if target is None all columns not specified as metadata_dict are considered target columns
-            target = list(dataframe.columns)
-            for item in metadata.values():
-                logger.debug(f'{item}, {metadata}, {target}')
-                target.remove(item)
-
-        output = clean_dataframe(dataframe, target, metadata, downsample_rate, country, remove_flatline)
-        return output, target
-
-    @staticmethod
-    def split_data(full_data: DataFrame, target: List[str], training_share: float, testing_share: float,
-                   load_features: Optional[int] = None, by_category: bool = False) -> (Tuple[DataFrame], Tuple[List]):
-        assert training_share + testing_share <= 1, 'Invalid dataset split, total larger than 1.'
+    def split_data(full_data: DataFrame, dataset_spec: DatasetSpec) -> (Tuple[DataFrame], Tuple[List]):
         logger.info('Splitting dataset')
+        dataset_spec.check_validity()
+        target = dataset_spec.data_spec.data_column_names
 
-        if by_category:
+        if dataset_spec.data_spec.split_by_category:
             tests_data = train_data = valid_data = full_data
             nr_of_cats = len(target)
-            train_len = int(nr_of_cats * training_share)
-            tests_len = int(nr_of_cats * testing_share)
+            train_len = int(nr_of_cats * dataset_spec.train_share)
+            tests_len = int(nr_of_cats * dataset_spec.tests_share)
             valid_len = nr_of_cats - (train_len + tests_len)
 
             perm = torch.randperm(nr_of_cats).split([train_len, valid_len, tests_len])
@@ -222,109 +226,39 @@ class ResidualDataset(Dataset):
             tests_target = train_target = valid_target = target
 
             # Obtain sizes for training, validation and test set
-            nr_of_days = len(full_data) // load_features
-            train_len = int(nr_of_days * training_share) * load_features
-            tests_len = - int(nr_of_days * testing_share) * load_features
-            if len(full_data) % load_features != 0:
+            nr_of_days = len(full_data) // dataset_spec.features_per_step
+            train_len = int(nr_of_days * dataset_spec.train_share) * dataset_spec.features_per_step
+            tests_len = - int(nr_of_days * dataset_spec.tests_share) * dataset_spec.features_per_step
+            if len(full_data) % dataset_spec.features_per_step != 0:
                 logger.warning('Dataset does not contain a flat number of cycles')
 
             # Split residuals accordingly
             train_data = full_data[:train_len]
             valid_data = full_data[train_len:tests_len]
-            tests_data = full_data[tests_len:nr_of_days * load_features]
+            tests_data = full_data[tests_len:nr_of_days * dataset_spec.features_per_step]
 
         return (train_data, valid_data, tests_data), (train_target, valid_target, tests_target)
 
     SET = TypeVar('SET')
-    @classmethod
-    def from_spec(cls: SET, spec: ResidualDatasetSpec) -> Tuple[SET, SET, SET]:
-        data_spec = spec.data_spec
-
-        metadata_dict = dict(time=data_spec.time_column_name)
-
-        return cls.from_csv(
-            file=data_spec.full_file_path(file_extension='.csv'),
-            historic_window=spec.historic_window,
-            forecast_window=spec.forecast_window,
-            features_per_step=spec.features_per_step,
-            metadata_dict=metadata_dict,
-            target=data_spec.data_column_names,
-            normalizer=spec.normalizer,
-            residual_normalizer=spec.residual_normalizer,
-            pslp_dataset=spec.pslp_dataset,
-            pslp_cycles=spec.pslp_cycles,
-            pslp_cycle_len=spec.pslp_cycle_len,
-            country=data_spec.country_code,
-            downsample_rate=data_spec.downsample_rate,
-            remove_flatline=data_spec.remove_flatline,
-            split_by_category=data_spec.split_by_category,
-            train_share=spec.train_share,
-            tests_share=spec.tests_share,
-            reduce=spec.reduce,
-            device=spec.device
-        )
 
     @classmethod
-    def from_csv(cls: SET, file: Union[str, List[str]],
-                 historic_window: int,
-                 forecast_window: int,
-                 features_per_step: int,
-                 metadata_dict: Dict[str, str],
-                 target: Optional[List[str]] = None,
-                 normalizer: Type[Normalizer] = MinMax,
-                 residual_normalizer: Type[Normalizer] = AbsMax,
-                 pslp_dataset = LooseTypeLastPSLPDataset,
-                 pslp_cycles: int = 3,
-                 pslp_cycle_len: int = 7,
-                 country: Optional[str] = None,
-                 downsample_rate: Optional[int] = None,
-                 remove_flatline: bool = False,
-                 split_by_category: bool = False,
-                 train_share: float = 0.6,
-                 tests_share: float = 0.2,
-                 reduce: Optional[float] = None,
-                 device: Optional[torch.device] = None) -> Tuple[SET, SET, SET]:
-        """
-
-        :param file: dataset file or tuple of (training input_data file, validation input_data file, test input_data file)
-        :param historic_window:
-        :param forecast_window:
-        :param features_per_step:
-        :param metadata_dict:
-        :param target:
-        :param normalizer:
-        :param residual_normalizer:
-        :param pslp_window:
-        :param country:
-        :param downsample_rate:
-        :param remove_flatline:
-        :param split_by_category:
-        :param train_share:
-        :param tests_share:
-        :param reduce:
-        :return:
-        """
+    def from_csv(cls: SET, dataset_spec: ResidualDatasetSpec) -> Tuple[SET, SET, SET]:
         logger.info('Reading from csv')
 
+        file = dataset_spec.data_spec.full_file_path(file_extension='.csv')
         if isinstance(file, str):
             full_data = pd.read_csv(file)
-            full_data, target = cls.prepare_dataframe(full_data, metadata_dict, target, country,
-                                                      downsample_rate, remove_flatline)
+            full_data, data_column_names = clean_dataframe(df=full_data, data_spec=dataset_spec.data_spec)
+            assert dataset_spec.data_spec.data_column_names == data_column_names, 'Turns out it is pass by copy'
             logger.info('Dataframe prepared')
-            dataframes, targets = cls.split_data(full_data=full_data,
-                                                 target=target,
-                                                 training_share=train_share,
-                                                 testing_share=tests_share,
-                                                 load_features=features_per_step,
-                                                 by_category=split_by_category)
+            dataframes, targets = cls.split_data(full_data=full_data, dataset_spec=dataset_spec)
         elif isinstance(file, List):
             assert len(file) == 3, 'Must proved exactly 3 paths for train, validation and test set'
             dataframes = []
             targets = []
             for f in file:
                 data = pd.read_csv(f)
-                f, t = cls.prepare_dataframe(data, metadata_dict, target, country,
-                                             downsample_rate, remove_flatline)
+                f, t = clean_dataframe(df=data, data_spec=dataset_spec.data_spec)
                 dataframes.append(f)
                 targets.append(t)
             logger.info('Dataframes prepared')
@@ -334,26 +268,14 @@ class ResidualDataset(Dataset):
         train_data, valid_data, tests_data = dataframes
         train_target, valid_target, tests_target = targets
 
-        data_args = dict(
-            historic_window=historic_window,
-            forecast_window=forecast_window,
-            features_per_step=features_per_step,
-            metadata=metadata_dict,
-            universal_holidays=(country is not None),
-            normalizer=normalizer,
-            residual_normalizer=residual_normalizer,
-            pslp_dataset=pslp_dataset,
-            pslp_cycles=pslp_cycles,
-            pslp_cycle_len=pslp_cycle_len,
-            reduce=reduce,
-            device=device
-        )
-
-        train_set = cls(train_data, target=train_target, **data_args)
+        dataset_spec.data_spec.data_column_names = train_target
+        train_set = cls(data=train_data, dataset_spec=dataset_spec)
         logger.info('Training input_data loaded')
-        valid_set = cls(valid_data, target=valid_target, **data_args)
+        dataset_spec.data_spec.data_column_names = valid_target
+        valid_set = cls(data=valid_data, dataset_spec=dataset_spec)
         logger.info('Validation input_data loaded')
-        tests_set = cls(tests_data, target=tests_target, **data_args)
+        dataset_spec.data_spec.data_column_names = tests_target
+        tests_set = cls(data=tests_data, dataset_spec=dataset_spec)
         logger.info('Test input_data loaded')
 
         return train_set, valid_set, tests_set

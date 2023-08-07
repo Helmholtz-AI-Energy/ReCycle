@@ -66,7 +66,7 @@ class Model(nn.Module):
         if not self.training:
             assert reference is None, f'Evaluation cannot use labels for prediction'
 
-        # this allows for advanced metadata selection and modification by redefining _select_metadata in the subclass
+        # this allows for advanced metadata_column_names selection and modification by redefining _select_metadata in the subclass
         metadata = self._select_metadata(input_sequence, input_pslp, input_metadata, forecast_pslp, decoder_metadata,
                                          cat_index, reference)
 

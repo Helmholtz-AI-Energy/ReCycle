@@ -2,7 +2,7 @@ import pandas as pd
 import holidays
 from datetime import timedelta
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 from pandas import DataFrame
 from numpy import NaN
 
@@ -11,56 +11,77 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def clean_dataframe(df: DataFrame, target: List[str], metadata: Optional[Dict[str, str]] = None,
-                    downsample_rate: Optional[int] = None, fixed_country: Optional[str] = None,
-                    flatline_to_nan: bool = True) -> DataFrame:
+def clean_dataframe(df: DataFrame, data_spec: 'DataSpec') -> (DataFrame, List[str]):
+    if data_spec.data_column_names is None:
+        logger.info('Inferring data_column_names')
+        # if data_column_names is None all columns not specified as metadata are considered data_column_names columns
+        data_spec.data_column_names = list(df.columns)
+        data_spec.data_column_names.remove(data_spec.time_column_name)
+        for item in data_spec.metadata_column_names:
+            logger.debug(f'{item}, {data_spec.data_column_names}')
+            data_spec.data_column_names.remove(item)
+
+    # shorthands for code cleanliness
+    data_column_names = data_spec.data_column_names
+    time_column_name = data_spec.time_column_name
+    metadata_column_names = data_spec.metadata_column_names
 
     # Ensure increasing time sorting, discontinued as it breaks Datasets if column only contains date not time
-    df[metadata['time']] = pd.to_datetime(df[metadata['time']])
-    #df.sort_values(metadata['time'], ascending=True, inplace=True)
+    df[time_column_name] = pd.to_datetime(df[time_column_name])
+    #df.sort_values(time_column_name, ascending=True, inplace=True)
 
     # Remove nuisance columns
-    valid = (target if metadata is None else target + list(metadata.values()))
+    if type(data_spec.data_column_names) is str:
+        data_column_names = [data_column_names]
+    valid = (data_column_names if metadata_column_names is None else data_column_names + metadata_column_names)
+    valid = [time_column_name] + valid
     df = df[valid]
 
-    if flatline_to_nan:
-        starts = df[target].ne(0).idxmax()
-        for column in target:
+    if data_spec.remove_flatline:
+        starts = df[data_column_names].ne(0).idxmax()
+        for column in data_column_names:
             df.loc[:starts[column] - 1, column] = NaN
         logger.info('Flatline removed')
 
-    if downsample_rate is not None:
+    if data_spec.downsample_rate is not None:
         new = pd.DataFrame()
-        new[target] = df[target].rolling(downsample_rate).mean()[downsample_rate - 1 :: downsample_rate].reset_index(drop=True)
+        new[data_column_names] = df[data_column_names].rolling(data_spec.downsample_rate).mean()[
+                                 data_spec.downsample_rate - 1:: data_spec.downsample_rate].reset_index(drop=True)
+        ld = len(new[data_column_names[0]])
+        new[time_column_name] = df[time_column_name][0::data_spec.downsample_rate][:ld].reset_index(drop=True)
         logger.info('Data downsampling complete')
 
-        if metadata is not None:
-            for key in metadata:
-                new[metadata[key]] = df.loc[0::downsample_rate, metadata[key]].reset_index(drop=True)
+        if metadata_column_names is not None:
+            for column in metadata_column_names:
+                new[column] = df.loc[0::data_spec.downsample_rate, column].reset_index(drop=True)
 
         logger.info('Metadata downsampling complete')
         df = new
 
-    if fixed_country is not None:
-        logger.info(f'Using {fixed_country} holidays')
+    if data_spec.universal_holidays:
+        if data_spec.country_code is None:
+            logger.warning('No country specified, defaulting to Germany')
+            country = 'de'
+        else:
+            country = data_spec.country_code
+        logger.info(f'Using {country} holidays')
 
-        country = fixed_country
         local_holidays = holidays.country_holidays(country.upper())
-        df['holiday'] = [n in local_holidays for n in df[metadata['time']]]
-        df['holiday_tomorrow'] = [n in local_holidays for n in df[metadata['time']] + timedelta(days=1)]
+        df['holiday'] = [n in local_holidays for n in df[time_column_name]]
+        df['holiday_tomorrow'] = [n in local_holidays for n in df[time_column_name] + timedelta(days=1)]
     else:
         logger.info('Using individual holidays')
 
-        for country in target:
+        for country in data_column_names:
             local_holidays = holidays.country_holidays(country.upper())
-            df[metadata['time']] = pd.to_datetime(df[metadata['time']])
-            df['holiday_' + country] = [n in local_holidays for n in df[metadata['time']]]
-            df['holiday_' + country + '_tomorrow'] = [n in local_holidays for n in df[metadata['time']] + timedelta(days=1)]
+            df[time_column_name] = pd.to_datetime(df[time_column_name])
+            df['holiday_' + country] = [n in local_holidays for n in df[time_column_name]]
+            df['holiday_' + country + '_tomorrow'] = [n in local_holidays for n in df[time_column_name] + timedelta(days=1)]
 
-    if not flatline_to_nan:
+    if not data_spec.remove_flatline:
         logger.info('Fixing stray NaNs')
         # remove remaining NaNs by interpolating neighbours
         nan_list = df.isnull().stack()[lambda x: x].index.tolist()
         for index, column in nan_list:
             df.loc[index, column] = df.loc[index - 1:index + 2, column].mean()
-    return df
+    return df, data_column_names

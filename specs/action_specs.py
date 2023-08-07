@@ -14,5 +14,5 @@ class ActionSpec:
     load_path: str = None,
 
     test: bool = True,
-    plot_prediction: bool = True,
+    plot_prediction: bool = False,
 

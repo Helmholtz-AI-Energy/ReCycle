@@ -1,12 +1,22 @@
 import argparse
+import torch
 
-from specs.spec_factory import spec_factory
+from specs import spec_factory
+from perform_evaluation import perform_evaluation
+
+# Logging
+import logging
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Load forecasting evaluation framework')
 
-    best = 'Transformer'
-    parser.add_argument('-m', '--model_name', default=best, help='specifies model to use')
+    default_model = 'Transformer'
+    default_dataset = 'entsoe_de'
+    parser.add_argument('-m', '--model_name', default=default_model, help='specifies model to use')
 
     # General arguments
     parser.add_argument('--historic_window', default=21, type=int, help='number of input time steps')
@@ -15,9 +25,9 @@ if __name__ == '__main__':
                         help='number of features per input time step')
 
     # Model arguments
+    parser.add_argument('--meta_features', default=9, type=int, help='number of metadata_column_names features')
     parser.add_argument('--d_model', default=24, type=int, help='number of features after embedding')
     parser.add_argument('--embedding', default='default', help='embedding to use, check embeddings.py')
-    # parser.add_argument('--meta_features', default=9, type=int, help='number of metadata features')
     parser.add_argument('--residual_input', default=True, type=bool, help='whether to use residual inputs')
     parser.add_argument('--residual_forecast', default=True, type=bool, help='whether to make residual forecasts')
     parser.add_argument('--custom_quantiles', default=False, type=bool, help='whether to use hardcoded quantiles')
@@ -26,7 +36,7 @@ if __name__ == '__main__':
                         help='whether quantiles are build symmetrically from the center or traditionally')
     # Transformer specific arguments
     parser.add_argument('--nheads', default=1, type=int, help='number of transformer heads')
-    parser.add_argument('--dim_feedforward', default=128, type=int,
+    parser.add_argument('--dim_feedforward', default=32, type=int,
                         help='dimension of final linear layer in transformer')
     parser.add_argument('--d_hidden', default=32, type=int, help='dimension of encoder linear layer')
     # parser.add_argument('--meta_token', default=True, type=bool, help='whether to use non-zero start_token')
@@ -49,7 +59,7 @@ if __name__ == '__main__':
                         help='number of steps making occurrence of each pslp instance certain')
 
     # Data specifications
-    parser.add_argument('--dataset_name', default='entsoe_de',
+    parser.add_argument('--dataset_name', default=default_dataset,
                         help='fills in following specifications for known residuals, use None otherwise')
     # These are for custom datasets probably easier to create a new spec in specs.dataset_specs though
     parser.add_argument('--file_name', default=None, type=str, help='name of the data file (should be csv)')
@@ -66,7 +76,7 @@ if __name__ == '__main__':
     # TODO: add loss and optimizer specification specification
 
     # Training actions
-    parser.add_argument('--train', action='store_true', default=False, help='train the model')
+    parser.add_argument('--train', action='store_true', default=True, help='train the model')
     parser.add_argument('--plot_loss', action='store_true', default=True, help='plot loss after training')
     # Save and load
     parser.add_argument('--save', action='store_true', default=True, help='save model')
@@ -82,4 +92,16 @@ if __name__ == '__main__':
 
     parsed = vars(parser.parse_args())
 
+    if parsed['custom_quantiles']:
+        parsed['custom_quantiles'] = torch.arange(0.1, 1., 0.1)
+    else:
+        parsed['custom_quantiles'] = None
+
     model_spec, dataset_spec, train_spec, action_spec = spec_factory(**parsed)
+
+    perform_evaluation(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec
+    )
