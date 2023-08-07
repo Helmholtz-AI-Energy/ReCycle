@@ -27,28 +27,23 @@ class ModelFramework:
             self,
             model_spec: ModelSpec,
             dataset_spec: DatasetSpec,
-            # train_spec: TrainSpec,
             # For repeated runs the already built datasets can be reused
             premade_datasets: Optional[Tuple[ResidualDataset, ResidualDataset, ResidualDataset]] = None,
 ):
 
         self.model_spec = model_spec
-        self.dataset_spec = dataset_spec
-        # self.train_spec = train_spec
-
-        # Save input arguments for saving
-        self.args = locals()
-        del self.args['self']
-
-        self.dataset_name = dataset_spec.data_spec.file_name
         self.model_name = model_spec.model_name
 
         if premade_datasets is None:
             assert type(dataset_spec) == ResidualDatasetSpec, 'ResidualDataset requires ResidualDatasetSpec'
             self.datasets = dataset_spec.create_datasets()
+            self.dataset_spec = dataset_spec
+            self.dataset_name = dataset_spec.data_spec.file_name
         else:
             logger.info('Using premade datasets')
             self.datasets = premade_datasets
+            self.dataset_spec = self.datasets[0].dataset_spec
+            self.dataset_name = self.datasets[0].dataset_spec.data_spec.file_name
 
         # Define run mode, 0 is train, 1 is eval 2 is testing. Used for gradient tracking and dataset selection
         self._mode = 0

@@ -42,6 +42,7 @@ class TimeSeriesDataset(Dataset, ABC):
 class ResidualDataset(Dataset):
     def __init__(self, data: DataFrame, dataset_spec: ResidualDatasetSpec) -> None:
         dataset_spec.check_validity()
+        self.dataset_spec = dataset_spec
         data_spec = dataset_spec.data_spec
 
         # if reduce < 1 is given the set is reduced to the given fraction
