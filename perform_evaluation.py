@@ -1,4 +1,7 @@
+import os
 from random import randrange
+
+import torch
 
 from models import ModelFramework
 from utils.visualisation import plot_losses, plot_sample
@@ -17,8 +20,14 @@ def perform_evaluation(
         action_spec: ActionSpec
 ) -> None:
     if action_spec.load:
-        logger.error('Loading not implemented')
-        run = None
+        load_path = (action_spec.load_path or action_spec.save_path)
+        load_file = load_path + '_'.join([model_spec.model_name, dataset_spec.data_spec.file_name]) + '.pt'
+
+        model_spec, dataset_spec, old_train_spec, state_dict = torch.load(load_file)
+        logger.info(f'Loading from {load_file}:\n {model_spec=}\n {dataset_spec=}\n {old_train_spec=}')
+
+        run = ModelFramework(model_spec, dataset_spec)
+        run.model.load_state_dict(state_dict=state_dict)
     else:
         run = ModelFramework(model_spec, dataset_spec)
 
@@ -29,8 +38,13 @@ def perform_evaluation(
             plot_losses(train_loss, valid_loss)
 
     if action_spec.save:
-        logger.warning('Saving not implemented')
-        pass
+        # set upt save location
+        os.makedirs(action_spec.save_path, exist_ok=True)
+        save_file = action_spec.save_path + '_'.join([model_spec.model_name, dataset_spec.data_spec.file_name]) + '.pt'
+
+        # get model state dictionary and save
+        state_dict = run.model.state_dict()
+        torch.save([model_spec, dataset_spec, train_spec, state_dict], f=save_file)
 
     if action_spec.test:
         logger.info('Evaluating test set')

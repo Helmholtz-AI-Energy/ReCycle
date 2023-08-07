@@ -9,9 +9,9 @@ class ActionSpec:
     plot_loss: bool = True,
 
     save: bool = True,
-    save_path: str = './saved_models/',
+    save_path: Optional[str] = './saved_models/',
     load: bool = False,
-    load_path: str = None,
+    load_path: Optional[str] = None,
 
     test: bool = True,
     plot_prediction: bool = False,
