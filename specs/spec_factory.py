@@ -103,6 +103,8 @@ def spec_factory(
     logger.info(f'Using {device}')
 
     model_spec_class = get_model_spec(model_name)
+    if custom_quantiles is not None:
+        quantiles = len(custom_quantiles)
     if type(embedding) is str:
         embedding_args = embedding_args or {}
         model_spec = model_spec_class.from_embedding_name(

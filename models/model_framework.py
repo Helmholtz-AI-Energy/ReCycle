@@ -216,8 +216,6 @@ class ModelFramework:
             for batch in loader:
                 cat_data = batch[-2]
                 prediction = dataset.norm.revert_normalization(batch[3], cat_data)
-                if self.model.nr_of_quantiles is not None:
-                    prediction = prediction[..., 0]
                 output_reference = dataset.norm.revert_normalization(batch[-1], cat_data)
                 batch_metrics = apply_error_metric(prediction, output_reference)
 

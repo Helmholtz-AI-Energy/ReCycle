@@ -1,10 +1,17 @@
 from matplotlib import pyplot as plt
 import torch
+from os import path
 
 from utils.tools import selective_flatten
 
 from torch import Tensor
-from typing import Optional
+from typing import Optional, List
+
+if path.isdir('./HAIcolours'):
+    from HAIcolours import gray, blue
+else:
+    blue = 'tab:blue'
+    gray = 'tab:gray'
 
 plt.rcParams['figure.dpi'] = 600
 
@@ -52,5 +59,51 @@ def plot_losses(train_loss: Tensor, valid_loss: Tensor, truncate: int = 0) -> (p
     ax.plot(train_epoch[truncate:], train_loss[truncate:].detach(), "r")
     ax.plot(valid_epoch[truncate:], valid_loss[truncate:].detach(), "b")
     ax.set_yscale("log")
+    plt.show()
+    return fig, ax
+
+
+def plot_quantiles(quantiles: Tensor, reference: Tensor = None,
+                   quantile_labels: Optional[List[str]] = None,
+                   idx: int = 0,
+                   dpi: int = 600,
+                   residual_plot: bool = False) \
+        -> (plt.Figure, plt.Axes):
+
+    quantile_nr = quantiles.shape[-1]
+    median = (quantile_nr - 1) / 2
+
+    fig, ax = plt.subplots(dpi=dpi, figsize=(6, 4))
+
+    if quantile_nr % 2 == 1:
+        median = selective_flatten(quantiles[..., int(median)])
+        prediction_x = torch.arange(median.shape[-1])
+
+        # plot median
+        ax.plot(prediction_x, median, color=blue, label='Prediction')
+
+    for n in range(int(quantile_nr / 2)):
+        lower_bound = selective_flatten(quantiles[..., n])
+        upper_bound = selective_flatten(quantiles[..., -(n +1)])
+        prediction_x = torch.arange(lower_bound.shape[-1])
+
+        ax.fill_between(prediction_x, lower_bound, upper_bound, color=blue, edgecolor=None, alpha=(1. / quantile_nr))
+
+
+    if reference is not None:
+        reference = selective_flatten(reference, idx)
+        ax.plot(prediction_x, reference, color=gray, label='Reference')
+    ax.set_xlim([0, prediction_x[-1]])
+
+    x_label = "" if not residual_plot else "Residual "
+    x_label += "Consumption [GWh]"
+    ax.set_ylabel(x_label)
+    ax.set_xlabel('Time [d]')
+    ticks = torch.arange(0, len(prediction_x) + 1, 24)
+    labels = range(len(ticks))
+    plt.xticks(ticks, labels)
+
+    #ax.legend()
+    ax.grid(False)
     plt.show()
     return fig, ax

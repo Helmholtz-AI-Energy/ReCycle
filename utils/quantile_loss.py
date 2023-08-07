@@ -20,7 +20,7 @@ class QuantileLoss(_Loss):
         self._quantile_values = torch.tensor(quantiles) - 0.5
 
     def get_quantile_values(self) -> Tensor:
-        return self._quantile_values() + 0.5
+        return self._quantile_values + 0.5
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
         assert input.shape[:-1] == target.shape, f'Input shape {input.shape[:-1]} does not match target shape {target.shape}'

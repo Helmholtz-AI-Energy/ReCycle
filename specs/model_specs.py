@@ -60,6 +60,9 @@ class ModelSpec:
         assert self.embedding.input_features[1] == self.meta_features, \
             (f'Secondary embedding input features ({self.embedding.input_features[1]}) do not match '
              f'meta features ({self.meta_features}))')
+        if self.custom_quantiles is not None:
+            assert self.quantiles == len(self.custom_quantiles),\
+                f'{self.custom_quantiles=} should reflect number of custom quantiles ({len(self.custom_quantiles)})'
 
     @classmethod
     def from_embedding_name(

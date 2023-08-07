@@ -4,7 +4,7 @@ from random import randrange
 import torch
 
 from models import ModelFramework
-from utils.visualisation import plot_losses, plot_sample
+from utils.visualisation import plot_losses, plot_sample, plot_quantiles
 
 from specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
 
@@ -26,9 +26,15 @@ def perform_evaluation(
         model_spec, dataset_spec, old_train_spec, state_dict = torch.load(load_file)
         logger.info(f'Loading from {load_file}:\n {model_spec=}\n {dataset_spec=}\n {old_train_spec=}')
 
+        model_spec.check_validity()
+        dataset_spec.check_validity()
+
         run = ModelFramework(model_spec, dataset_spec)
         run.model.load_state_dict(state_dict=state_dict)
     else:
+        model_spec.check_validity()
+        dataset_spec.check_validity()
+
         run = ModelFramework(model_spec, dataset_spec)
 
     if action_spec.train:
@@ -49,6 +55,8 @@ def perform_evaluation(
     if action_spec.test:
         logger.info('Evaluating test set')
         run.mode('test')
+        if model_spec.quantiles is not None:
+            print(f'Quantiles: {train_spec.loss.get_quantile_values()}')
         test_batchsize = train_spec.batch_size if train_spec.batch_size < len(run.dataset()) else len(run.dataset())
         print('Network prediction:')
         result_summary = run.test_forecast(batch_size=test_batchsize)
@@ -64,9 +72,14 @@ def perform_evaluation(
         ylabel = dataset_spec.data_spec.ylabel
         res_label = "Residual " + ylabel
 
-        if (model_spec.quantiles is not None) or (model_spec.custom_quantiles is not None):
+        if model_spec.quantiles is not None:
             # plot quantiles
-            pass
+            idx = randrange(len(run.datasets[2]))
+            print(f'Sample nr: {idx}')
+
+            prediction, input_data, reference = run.predict(dataset_name='test', idx=idx)
+            plot_quantiles(prediction, reference)
+
         else:
             logger.info('plotting predictions')
             for n in range(4):
