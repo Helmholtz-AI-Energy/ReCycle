@@ -16,6 +16,20 @@ if __name__ == '__main__':
 
     default_model = 'Transformer'
     default_dataset = 'entsoe_de'
+
+    quantiles = 5
+    assume_symmetric_quantiles = True
+
+    train = False
+    load = True
+    save = False
+
+    train_mode_override = False
+    if train_mode_override:
+        train = True
+        load = False
+        save = True
+
     parser.add_argument('-m', '--model_name', default=default_model, help='specifies model to use')
 
     # General arguments
@@ -31,8 +45,8 @@ if __name__ == '__main__':
     parser.add_argument('--residual_input', default=True, type=bool, help='whether to use residual inputs')
     parser.add_argument('--residual_forecast', default=True, type=bool, help='whether to make residual forecasts')
     parser.add_argument('--custom_quantiles', default=False, type=bool, help='whether to use hardcoded quantiles')
-    parser.add_argument('--quantiles', default=9, type=int, help='number of quantiles for autogeneration')
-    parser.add_argument('--assume_symmetric_quantiles', action='store_true', default=False,
+    parser.add_argument('--quantiles', default=quantiles, type=int, help='number of quantiles for autogeneration')
+    parser.add_argument('--assume_symmetric_quantiles', action='store_true', default=assume_symmetric_quantiles,
                         help='whether quantiles are build symmetrically from the center or traditionally')
     # Transformer specific arguments
     parser.add_argument('--nheads', default=1, type=int, help='number of transformer heads')
@@ -76,12 +90,12 @@ if __name__ == '__main__':
     # TODO: add loss and optimizer specification specification
 
     # Training actions
-    parser.add_argument('--train', action='store_true', default=False, help='train the model')
+    parser.add_argument('--train', action='store_true', default=train, help='train the model')
     parser.add_argument('--plot_loss', action='store_true', default=True, help='plot loss after training')
     # Save and load
-    parser.add_argument('--save', action='store_true', default=False, help='save model')
+    parser.add_argument('--save', action='store_true', default=save, help='save model')
     parser.add_argument('--save_path', default='./saved_models/', help='path to store model if saving')
-    parser.add_argument('--load', action='store_true', default=True, help='load model from file')
+    parser.add_argument('--load', action='store_true', default=load, help='load model from file')
     parser.add_argument('--load_path', default=None, help='path to load model from, if None same as save_path')
 
     # Processing steps

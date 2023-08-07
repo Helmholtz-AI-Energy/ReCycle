@@ -4,7 +4,7 @@ from random import randrange
 import torch
 
 from models import ModelFramework
-from utils.visualisation import plot_losses, plot_sample, plot_quantiles
+from utils.visualisation import plot_losses, plot_sample, plot_quantiles, plot_calibration
 
 from specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
 
@@ -59,7 +59,14 @@ def perform_evaluation(
             print(f'Quantiles: {train_spec.loss.get_quantile_values()}')
         test_batchsize = train_spec.batch_size if train_spec.batch_size < len(run.dataset()) else len(run.dataset())
         print('Network prediction:')
-        result_summary = run.test_forecast(batch_size=test_batchsize)
+        if model_spec.quantiles is None:
+            result_summary = run.test_forecast(batch_size=test_batchsize)
+        else:
+            result_summary, calibration = run.test_forecast(batch_size=test_batchsize, calibration=True)
+            print(calibration)
+            quantiles = train_spec.loss.get_quantile_values()
+            plot_calibration(calibration, quantiles)
+
         print(result_summary)
 
         # Persistence for reference

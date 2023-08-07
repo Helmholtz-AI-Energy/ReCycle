@@ -173,7 +173,11 @@ class ModelFramework:
             prediction -= output_pslp
         return prediction, input_reference, output_reference
 
-    def test_forecast(self, batch_size: int = 128) -> pd.DataFrame:
+    def test_forecast(self, batch_size: int = 128, calibration: bool = False) -> pd.DataFrame:
+        if calibration:
+            assert self.model.nr_of_quantiles is not None, 'Calibration counting requires model with quantiles'
+            total_calibration = torch.empty(0)
+
         self.mode('test')
         dataset = self.dataset()
         if batch_size > len(dataset):
@@ -186,10 +190,18 @@ class ModelFramework:
                 cat_data = batch[-2]
                 prediction = self.model.predict(*batch[:-1])
                 prediction = dataset.norm.revert_normalization(prediction, cat_data)
+                output_reference = dataset.norm.revert_normalization(batch[-1], cat_data)
 
                 if self.model.nr_of_quantiles is not None:
-                    prediction = prediction[..., 0]
-                output_reference = dataset.norm.revert_normalization(batch[-1], cat_data)
+                    if calibration:
+                        # move quantile_dimension to front, then elementwise comparison on last two dimensions and collapse
+                        batch_calibration = (output_reference < prediction.movedim(-1, 0)).to(float).flatten(1).mean(-1)
+                        total_calibration = torch.concat([total_calibration, batch_calibration.unsqueeze(0)])
+
+                    if self.model_spec.assume_symmetric_quantiles:
+                        prediction = prediction[..., 0]
+                    else:
+                        prediction = prediction[..., prediction.shape[-1]//2]
                 batch_metrics = apply_error_metric(prediction, output_reference)
 
                 # get mase for inhomogeneous datasets
@@ -201,6 +213,10 @@ class ModelFramework:
                 batch_metrics['scaled bias'] = scaled_metrics.bias
 
                 results = pd.concat([results, batch_metrics])
+
+            if calibration:
+                final_calibration = total_calibration.mean(0)
+                return results.mean().to_frame().T, final_calibration
 
         return results.mean().to_frame().T
     

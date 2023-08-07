@@ -89,7 +89,6 @@ def plot_quantiles(quantiles: Tensor, reference: Tensor = None,
 
         ax.fill_between(prediction_x, lower_bound, upper_bound, color=blue, edgecolor=None, alpha=(1. / quantile_nr))
 
-
     if reference is not None:
         reference = selective_flatten(reference, idx)
         ax.plot(prediction_x, reference, color=gray, label='Reference')
@@ -105,5 +104,14 @@ def plot_quantiles(quantiles: Tensor, reference: Tensor = None,
 
     #ax.legend()
     ax.grid(False)
+    plt.show()
+    return fig, ax
+
+
+def plot_calibration(predicted: Tensor, target: Tensor, dpi: Optional[int] = 600) -> (plt.Figure, plt.Axes):
+    fig, ax = plt.subplots(dpi=dpi, figsize=(4, 4))
+    ax.plot(target, target, 'k')
+    ax.plot(target, predicted, blue)
+
     plt.show()
     return fig, ax

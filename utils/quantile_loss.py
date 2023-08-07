@@ -28,13 +28,14 @@ class QuantileLoss(_Loss):
 
         difference = input - target.unsqueeze(-1).expand(*target.shape, self.quantile_nr)
 
-        # Calculate q * |x| for x > 0; (1 - q) |x| for x < 0
+        # Calculate q * |x| for x < 0; (1 - q) |x| for x > 0
         # where q = self.quantile_values, x = difference
-        # write as (0.5 + sign(x)(q - 0.5)) * |x| for vectorization
+        # write as (0.5 - sign(x)(q - 0.5)) * |x| for vectorization
         # This is where the 0.5 that would be added is subtracted again add we drop both
-        # So calculate 0.5 + sign(x)(q - 0.5), but since |x| = sign(x)*x and sign(x)**2 = 1
-        # becomes 0.5 * sign(x) * x + (q - 0.5) * x
-        point_loss = 0.5 * torch.abs(difference) + torch.mul(self._quantile_values.expand(*target.shape, -1), difference)
+        # So calculate 0.5 - sign(x)(q - 0.5), but since |x| = sign(x)*x and sign(x)**2 = 1
+        # becomes 0.5 * sign(x) * x - (q - 0.5) * x
+        # flip sign of second term to switch <> definitions above
+        point_loss = 0.5 * torch.abs(difference) - torch.mul(self._quantile_values.expand(*target.shape, -1), difference)
 
         if self.reduction == 'mean':
             output = torch.mean(point_loss)
@@ -74,9 +75,9 @@ class SymmetricQuantileLoss(QuantileLoss):
 
         super().__init__(quantiles=quantile_values, reduction=reduction)
 
-    def get_quantile_values(self) -> float:
-        """This version returns the value of the symmetrized, enclosed interval so median is 0%, 25%-75% is 50%, ..."""
-        return self.get_quantile_values() * 2
+    #def get_quantile_values(self) -> float:
+    #    """This version returns the value of the symmetrized, enclosed interval so median is 0%, 25%-75% is 50%, ..."""
+    #    return super().get_quantile_values() * 2
 
 
 class EquidistantQuantileLoss(QuantileLoss):
