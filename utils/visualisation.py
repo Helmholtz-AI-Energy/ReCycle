@@ -109,9 +109,23 @@ def plot_quantiles(quantiles: Tensor, reference: Tensor = None,
 
 
 def plot_calibration(predicted: Tensor, target: Tensor, dpi: Optional[int] = 600) -> (plt.Figure, plt.Axes):
-    fig, ax = plt.subplots(dpi=dpi, figsize=(4, 4))
-    ax.plot(target, target, 'k')
+    plt.rc('font', size=4)
+    fig, ax = plt.subplots(dpi=dpi)#, figsize=(6, 6))
+    ax.plot([0, 1], [0, 1], 'k', linewidth=1, transform=ax.transAxes)
+
     ax.plot(target, predicted, blue)
+
+    ticks = torch.arange(0, 1.1, 0.2)
+    ax.set_xticks(ticks)
+    ax.set_yticks(ticks)
+
+
+    ax.set_aspect('equal')
+    ax.set_xlim([0, 1])
+    ax.set_ylim([0, 1])
+    ax.grid(True)
+    ax.set_ylabel('Theoretical quantiles')
+    ax.set_xlabel('Predicted quantiles')
 
     plt.show()
     return fig, ax
