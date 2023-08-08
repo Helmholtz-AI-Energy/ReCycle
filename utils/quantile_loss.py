@@ -51,6 +51,7 @@ class SymmetricQuantileLoss(QuantileLoss):
     def __init__(self,
                  quantile_nr: int = 2,
                  custom_quantiles: Optional[Union[List[int], Tensor]] = None,
+                 invert: bool = False,
                  reduction: str = 'mean') -> None:
         """
         Defines a symmetric variant of the quantile loss
@@ -71,6 +72,8 @@ class SymmetricQuantileLoss(QuantileLoss):
             quantile_values = torch.arange(0, 1, 1 / quantile_nr)
 
         quantile_values /= 2
+        if invert:
+            quantile_values *= -1
         quantile_values += 0.5
 
         super().__init__(quantiles=quantile_values, reduction=reduction)
@@ -101,17 +104,18 @@ def get_quantile_loss(
         custom_quantiles: Optional[Union[List[float], Tensor]] = None,
         quantile_nr: Optional[int] = None,
         symmetric_quantiles: bool = False,
+        invert: bool = False,
         reduction: str = 'mean'
 ) -> QuantileLoss:
 
     if custom_quantiles is not None:
         if symmetric_quantiles:
-            return SymmetricQuantileLoss(custom_quantiles=custom_quantiles, reduction=reduction)
+            return SymmetricQuantileLoss(custom_quantiles=custom_quantiles, invert=invert, reduction=reduction)
         else:
             return QuantileLoss(quantiles=custom_quantiles, reduction=reduction)
     else:
         assert quantile_nr is not None, f'Either quantile_nr of custom_quantiles must be provided'
         if symmetric_quantiles:
-            return SymmetricQuantileLoss(quantile_nr=quantile_nr, reduction=reduction)
+            return SymmetricQuantileLoss(quantile_nr=quantile_nr, invert=invert, reduction=reduction)
         else:
             return EquidistantQuantileLoss(quantile_nr=quantile_nr, reduction=reduction)
