@@ -39,18 +39,21 @@ def perform_evaluation(
 
     if action_spec.train:
         train_loss, valid_loss, best_loss = run.train_model(train_spec)
+
+        if action_spec.save:
+            # set upt save location
+            os.makedirs(action_spec.save_path, exist_ok=True)
+            save_file = action_spec.save_path + '_'.join(
+                [model_spec.model_name, dataset_spec.data_spec.file_name]) + '.pt'
+
+            # get model state dictionary and save
+            state_dict = run.model.state_dict()
+            torch.save([model_spec, dataset_spec, train_spec, state_dict], f=save_file)
+            logger.info('Model saved')
+            
         if action_spec.plot_loss:
             logger.info('Plotting loss')
             plot_losses(train_loss, valid_loss)
-
-    if action_spec.save:
-        # set upt save location
-        os.makedirs(action_spec.save_path, exist_ok=True)
-        save_file = action_spec.save_path + '_'.join([model_spec.model_name, dataset_spec.data_spec.file_name]) + '.pt'
-
-        # get model state dictionary and save
-        state_dict = run.model.state_dict()
-        torch.save([model_spec, dataset_spec, train_spec, state_dict], f=save_file)
 
     if action_spec.test:
         logger.info('Evaluating test set')

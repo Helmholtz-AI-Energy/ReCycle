@@ -34,11 +34,13 @@ def spec_factory(
         d_model: int = None,
         embedding: Optional[Union[str, FullEmbedding]] = None,
         embedding_args: Optional[dict] = None,
+        dropout: float = 0.,
         residual_input: bool = True,
         residual_forecast: bool = True,
         custom_quantiles: Optional[Union[List[int], Tensor]] = None,
         quantiles: Optional[int] = None,
         assume_symmetric_quantiles: bool = False,
+        invert: bool = False,
         model_args: Optional[dict] = None,
 
         normalizer: Type[Normalizer] = MinMax,
@@ -118,6 +120,7 @@ def spec_factory(
             d_model=d_model,
             embedding=embedding,
             embedding_args=embedding_args,
+            dropout=dropout,
             residual_input=residual_input,
             residual_forecast=residual_forecast,
             custom_quantiles=custom_quantiles,
@@ -125,7 +128,7 @@ def spec_factory(
             assume_symmetric_quantiles=assume_symmetric_quantiles,
 
             device=device,
-            **model_args,
+            #**model_args,
         )
     else:
         model_spec = model_spec_class(
@@ -137,6 +140,7 @@ def spec_factory(
             meta_features=meta_features,
             d_model=d_model,
             embedding=embedding,
+            dropout=dropout,
             residual_input=residual_input,
             residual_forecast=residual_forecast,
             custom_quantiles=custom_quantiles,
@@ -144,7 +148,7 @@ def spec_factory(
             assume_symmetric_quantiles=assume_symmetric_quantiles,
 
             device=device,
-            **model_args,
+            #**model_args,
         )
 
     # set up DatasetSpec
@@ -190,7 +194,8 @@ def spec_factory(
         loss = get_quantile_loss(
             custom_quantiles=custom_quantiles,
             quantile_nr=quantiles,
-            symmetric_quantiles=assume_symmetric_quantiles
+            symmetric_quantiles=assume_symmetric_quantiles,
+            invert=invert
         )
 
     patience = patience or epochs

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class OneshotTransformer(Model):
-    def __init__(self, model_spec: TransformerSpec):
+    def __init__(self, model_spec: TransformerSpec) -> None:
         super(OneshotTransformer, self).__init__(model_spec=model_spec)
         self.d_hid = model_spec.d_hidden or model_spec.dim_feedforward
 
@@ -83,7 +83,7 @@ class OneshotTransformer(Model):
         else:
             return output_metadata
 
-    def process(self, encoder_input: torch.Tensor, decoder_input: torch.Tensor) -> torch.Tensor:
+    def process(self, encoder_input: Tensor, decoder_input: Tensor) -> Tensor:
         encoder_input = self.encoder_in(encoder_input)
         decoder_input = self.decoder_in(decoder_input)
         transformed = self.transformer(encoder_input, decoder_input)

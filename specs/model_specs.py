@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import torch
+from torch import nn
 
 from typing import Optional, Type, TypeVar, Union, List
 from torch import Tensor
@@ -10,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 __all__ = {
     'ModelSpec',
-    'TransformerSpec'
+    'TransformerSpec',
+    'MLPSpec'
 }
 
 SPEC = TypeVar('SPEC')
@@ -28,6 +30,7 @@ class ModelSpec:
 
     :param int d_model: input dimension of the model after embedding
     :param FullEmbedding embedding: embedding that combines data and metadata_column_names and projects to d_model
+    :param float dropout: dropout ratio
     :param bool residual_input: if True modify input to be residual
     :param bool residual_forecast: if True modify output to be residual
     :param Optional[Union[List[int], Tensor]] custom_quantiles: Specifies a list of quantile values
@@ -45,6 +48,7 @@ class ModelSpec:
     meta_features: Optional[int] = None
     d_model: int = None
     embedding: FullEmbedding = None
+    dropout: float = 0.
     residual_input: bool = True
     residual_forecast: bool = True
     custom_quantiles: Optional[Union[List[int], Tensor]] = None
@@ -92,30 +96,46 @@ class ModelSpec:
 @dataclass
 class TransformerSpec(ModelSpec):
     """
-    Specs for a transformer model
+    Spec for a transformer model (models/oneshot_transformer.py)
 
     :param bool meta_token: if False use 0 filled template as decoder input
     :param int nheads: number of attention heads
     :param int num_encoder_layers: number of encoder layers
     :param int num_decoder_layers: number of decoder layers
     :param int dim_feedforward: dimension of the feedforward layer after attention
-    :param float dropout: dropout ratio
     :param bool malformer: if True the slightly more customizable malformer variant is used
     :param int d_hidden: only used if malformer id True, forces decoder output to given dimension instead of d_model
     """
-    model_name: str = 'Transformer'
+    model_name = 'Transformer'
     meta_token: bool = True
     nheads: int = 1
     num_encoder_layers: int = 1
     num_decoder_layers: int = 1
     dim_feedforward: int = 96
-    dropout: float = 0.
     malformer: bool = False
     d_hidden: int = None
 
 
+class MLPSpec(ModelSpec):
+    """
+    Spec for a multilayer perceptron model (models/mpl.py)
+    """
+    model_name = "MLP"
+    nr_of_hidden_layers: Optional[int] = 8
+    hidden_layers: Optional[List[int]] = None
+    non_linearity: nn.Module = nn.Tanh
+
+    def check_validity(self) -> None:
+        super().check_validity()
+        if self.hidden_layers is None:
+            assert self.nr_of_hidden_layers is not None, "Either hidden_layers or nr_of_hidden_layers must be provided"
+        elif self.nr_of_hidden_layers is not None:
+            logger.warning(f'{self.nr_of_hidden_layers=} is ignored since {self.hidden_layers=} is provided')
+
+
 model_spec_dict = dict(
-    Transformer=TransformerSpec
+    Transformer=TransformerSpec,
+    MLP=MLPSpec,
 )
 
 

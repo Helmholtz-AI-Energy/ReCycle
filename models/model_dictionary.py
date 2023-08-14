@@ -1,10 +1,12 @@
 from .oneshot_transformer import OneshotTransformer
+from .mlp import MultiLayerPerceptron
 
 from typing import Type
 from .model import Model
 
 model_dict = dict(
-    Transformer=OneshotTransformer
+    Transformer=OneshotTransformer,
+    MLP=MultiLayerPerceptron
 )
 
 

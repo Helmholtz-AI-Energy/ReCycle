@@ -22,6 +22,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         model_spec.check_validity()
 
+        self.model_name = model_spec.model_name
         self.device = model_spec.device or self._get_device()
 
         # embedding interface

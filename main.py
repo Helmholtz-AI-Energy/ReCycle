@@ -17,18 +17,24 @@ if __name__ == '__main__':
     default_model = 'Transformer'
     default_dataset = 'entsoe_de'
 
-    quantiles = 5
-    assume_symmetric_quantiles = True
+    custom_quantiles = False
+    quantiles = 9
+    assume_symmetric_quantiles = False
+    invert = False
 
-    train = False
-    load = True
-    save = False
+    # with symmetric quantiles only half the quantiles and the median need to be predicted
+    if assume_symmetric_quantiles:
+        quantiles = quantiles // 2 + 1
 
-    train_mode_override = False
+    train_mode_override = True
     if train_mode_override:
         train = True
         load = False
         save = True
+    else:
+        train = False
+        load = True
+        save = False
 
     parser.add_argument('-m', '--model_name', default=default_model, help='specifies model to use')
 
@@ -40,14 +46,17 @@ if __name__ == '__main__':
 
     # Model arguments
     parser.add_argument('--meta_features', default=9, type=int, help='number of metadata_column_names features')
-    parser.add_argument('--d_model', default=24, type=int, help='number of features after embedding')
+    parser.add_argument('--d_model', default=32, type=int, help='number of features after embedding')
     parser.add_argument('--embedding', default='default', help='embedding to use, check embeddings.py')
-    parser.add_argument('--residual_input', default=True, type=bool, help='whether to use residual inputs')
-    parser.add_argument('--residual_forecast', default=True, type=bool, help='whether to make residual forecasts')
-    parser.add_argument('--custom_quantiles', default=False, type=bool, help='whether to use hardcoded quantiles')
+    parser.add_argument('--residual_input', default=False, type=bool, help='whether to use residual inputs')
+    parser.add_argument('--residual_forecast', default=False, type=bool, help='whether to make residual forecasts')
+    parser.add_argument('--custom_quantiles', default=custom_quantiles, type=bool,
+                        help='whether to use hardcoded quantiles')
     parser.add_argument('--quantiles', default=quantiles, type=int, help='number of quantiles for autogeneration')
     parser.add_argument('--assume_symmetric_quantiles', action='store_true', default=assume_symmetric_quantiles,
                         help='whether quantiles are build symmetrically from the center or traditionally')
+    parser.add_argument('--invert', action='store_true', default=invert,
+                        help='makes symmetric quantiles be lower quantiles instead of upper')
     # Transformer specific arguments
     parser.add_argument('--nheads', default=1, type=int, help='number of transformer heads')
     parser.add_argument('--dim_feedforward', default=32, type=int,
@@ -107,7 +116,7 @@ if __name__ == '__main__':
     parsed = vars(parser.parse_args())
 
     if parsed['custom_quantiles']:
-        parsed['custom_quantiles'] = torch.arange(0.1, 1., 0.1)
+        parsed['custom_quantiles'] = [0.8, 0.9]
     else:
         parsed['custom_quantiles'] = None
 
