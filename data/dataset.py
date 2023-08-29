@@ -7,7 +7,7 @@ from torch.nn.functional import one_hot, l1_loss
 
 from .normalizer import Normalizer, MinMax, AbsMax
 from .data_cleaner import clean_dataframe
-from .pslp_datasets import LooseTypeLastPSLPDataset
+from .rhp_datasets import LooseTypeLastRHPDataset
 from specs.dataset_specs import ResidualDatasetSpec, DatasetSpec
 
 from torch import Tensor
@@ -75,10 +75,10 @@ class ResidualDataset(Dataset):
         # save type fixed dataframe
         self.dataframe = data
 
-        # pslp specifications
-        self.pslp_cycles = dataset_spec.pslp_cycles  # nr of weeks/long cycles for pslp
-        self.pslp_cycle_len = dataset_spec.pslp_cycle_len  # nr of days/primary cycles per week/long cycle
-        self.pslp_window = self.pslp_cycles * self.pslp_cycle_len  # nr of primary cycles in pslp
+        # rhp specifications
+        self.rhp_cycles = dataset_spec.rhp_cycles  # nr of weeks/long cycles for rhp
+        self.rhp_cycle_len = dataset_spec.rhp_cycle_len  # nr of days/primary cycles per week/long cycle
+        self.rhp_window = self.rhp_cycles * self.rhp_cycle_len  # nr of primary cycles in rhp
 
         # raw input_data as tensor, make categories first dim
         self.unnormalized_data = torch.tensor(data[self.target].values).t()
@@ -98,18 +98,18 @@ class ResidualDataset(Dataset):
 
         self.cat_offset = self.start_indices.clone()
         self.cat_offset[1:] -= self.cumulative_samples[:-1]
-        self.cat_offset += self.pslp_window
+        self.cat_offset += self.rhp_window
 
-        # generate metadata_dict and pslp
+        # generate metadata_dict and rhp
         self.metadata = self._generate_metadata()
-        self.pslp_data = dataset_spec.pslp_dataset(self.dataframe, self.pslp_cycles, self.target,
+        self.rhp_data = dataset_spec.rhp_dataset(self.dataframe, self.rhp_cycles, self.target,
                                                    self.time_column, self.norm, self._universal_holidays)
 
         # generate naive error estimate
         catergory_naive_mae = []
         for start, category in zip(self.start_indices, self.unnormalized_data):
             scale = 0
-            valid_data = category[start+self.pslp_window:-1]
+            valid_data = category[start+self.rhp_window:-1]
             for f in range(self.forecast_window):
                 # Using some reshuffling the MAE for each day in each forecast window with respect to the last known
                 # day can be calculated
@@ -124,7 +124,7 @@ class ResidualDataset(Dataset):
         self.catergory_naive_mae = torch.tensor(catergory_naive_mae)
 
         # derive residual norm, not used anymore
-        # self.residual_norm = residual_normalizer(self.normalized_data - self.pslp_data.get_local_pslp())
+        # self.residual_norm = residual_normalizer(self.normalized_data - self.rhp_data.get_local_rhp())
 
         # send to device
         self.device = dataset_spec.device
@@ -152,13 +152,13 @@ class ResidualDataset(Dataset):
         self.catergory_naive_mae = self.catergory_naive_mae.to(*args, device=device, **kwargs)
 
         # Objects that only need to transfer their members
-        self.pslp_data.to(*args, device=self.device, **kwargs)
+        self.rhp_data.to(*args, device=self.device, **kwargs)
         self.norm.to(*args, device=self.device, **kwargs)
         #self.residual_norm.to(*args, device=self.device, **kwargs)
 
     def __len__(self) -> int:
-        length = self.cumulative_samples[-1] #- self.pslp_window * self.categories
-        logger.debug(f'{length=}, {self.cumulative_samples[-1]=}, {self.pslp_window=}, {self.categories=}')
+        length = self.cumulative_samples[-1] #- self.rhp_window * self.categories
+        logger.debug(f'{length=}, {self.cumulative_samples[-1]=}, {self.rhp_window=}, {self.categories=}')
         return length
 
     def _category_lengths(self) -> Tuple[Tensor, Tensor]:
@@ -172,7 +172,7 @@ class ResidualDataset(Dataset):
 
         features = torch.tensor(lengths) - self.total_window_features  # consider window length
         cat_lengths = torch.div(features, self.features_per_step, rounding_mode='floor')  # convert to days/cycles
-        cat_lengths -= self.pslp_window  # consider pslp run up
+        cat_lengths -= self.rhp_window  # consider rhp run up
 
         start_indices = torch.div(torch.tensor(starts), self.features_per_step, rounding_mode='floor')
         logger.debug(f'{cat_lengths=}, {start_indices=}')
@@ -288,7 +288,7 @@ class ResidualDataset(Dataset):
 
     def __getitem__(self, item: int) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
         cat_index = torch.searchsorted(self.cumulative_samples, item, right=True)  # finds index of first entry > item
-        item += self.cat_offset[cat_index]  # adjust index for category, pslp, and internal start index
+        item += self.cat_offset[cat_index]  # adjust index for category, rhp, and internal start index
 
         historic_slice = slice(item, item + self.historic_window)
         forecast_slice = slice(item + self.historic_window, item + self.total_window)
@@ -297,9 +297,9 @@ class ResidualDataset(Dataset):
         historic_data = self.normalized_data[cat_index, historic_slice].clone()
         reference = self.normalized_data[cat_index, forecast_slice].clone()
 
-        historic_pslp, pslp_forecast = self.pslp_data.get_pslp(cat_index, historic_slice, forecast_slice)
-        historic_pslp = historic_pslp.clone()
-        pslp_forecast = pslp_forecast.clone()
+        historic_rhp, rhp_forecast = self.rhp_data.get_rhp(cat_index, historic_slice, forecast_slice)
+        historic_rhp = historic_rhp.clone()
+        rhp_forecast = rhp_forecast.clone()
 
         historic_metadata = self.metadata[cat_index, historic_slice].clone()
         forecast_metadata = self.metadata[cat_index, forecast_slice].clone()
@@ -307,4 +307,4 @@ class ResidualDataset(Dataset):
         # TODO: check if cat_index get correct device automatically
         #cat_index = torch.tensor(cat_index, device=self.device)
 
-        return historic_data, historic_pslp, historic_metadata, pslp_forecast, forecast_metadata, cat_index, reference
+        return historic_data, historic_rhp, historic_metadata, rhp_forecast, forecast_metadata, cat_index, reference

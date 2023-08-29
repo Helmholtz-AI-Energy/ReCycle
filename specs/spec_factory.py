@@ -9,7 +9,7 @@ from utils.quantile_loss import get_quantile_loss
 from typing import Optional, Type, Union, Tuple, List
 from data.embeddings import FullEmbedding
 from data.normalizer import Normalizer, MinMax
-from data.pslp_datasets import LooseTypePSLPDataset, LooseTypeLastPSLPDataset, PersistenceDataset
+from data.rhp_datasets import LooseTypeRHPDataset, LooseTypeLastRHPDataset, PersistenceDataset
 from torch import Tensor
 from torch.nn.modules.loss import _Loss, L1Loss
 from torch.optim import Optimizer, Adam
@@ -49,9 +49,9 @@ def spec_factory(
         reduce: Optional[float] = None,
 
         residual_normalizer: Optional[Type[Normalizer]] = None,
-        pslp_dataset: Union[Type[LooseTypePSLPDataset], Type[PersistenceDataset]] = LooseTypeLastPSLPDataset,
-        pslp_cycles: int = 3,
-        pslp_cycle_len: int = 7,
+        rhp_dataset: Union[Type[LooseTypeRHPDataset], Type[PersistenceDataset]] = LooseTypeLastRHPDataset,
+        rhp_cycles: int = 3,
+        rhp_cycle_len: int = 7,
 
         dataset_name: Optional[str] = None,
         file_name: Optional[Union[str, Tuple[str, str, str]]] = None,
@@ -67,7 +67,7 @@ def spec_factory(
         ylabel: Optional[str] = "Consumption",
         root_path: str = "./datasets/",
 
-        learning_rate: float = 1e-3,
+        learning_rate: float = -3,
         batch_size: int = 32,
         epochs: int = 200,
         patience: Optional[int] = 20,
@@ -185,9 +185,9 @@ def spec_factory(
         reduce=reduce,
         device=device,
         residual_normalizer=residual_normalizer,
-        pslp_dataset=pslp_dataset,
-        pslp_cycles=pslp_cycles,
-        pslp_cycle_len=pslp_cycle_len,
+        rhp_dataset=rhp_dataset,
+        rhp_cycles=rhp_cycles,
+        rhp_cycle_len=rhp_cycle_len,
     )
 
     # Prepare TrainSpec arguments

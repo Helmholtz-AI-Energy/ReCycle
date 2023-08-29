@@ -50,29 +50,29 @@ class Model(nn.Module):
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, input_sequence: Tensor, batch_size: int, input_metadata: Optional[Tensor] = None,
-                decoder_metadata: Optional[Tensor] = None, forecast_pslp: Optional[Tensor] = None,
+                decoder_metadata: Optional[Tensor] = None, forecast_rhp: Optional[Tensor] = None,
                 reference: Optional[Tensor] = None) -> Tensor:
 
         raise NotImplementedError
 
-    def _select_metadata(self, input_sequence: Tensor, input_pslp: Tensor, input_metadata: Tensor,
-                         forecast_pslp: Tensor, decoder_metadata: Tensor, cat_index: Optional[Tensor] = None,
+    def _select_metadata(self, input_sequence: Tensor, input_rhp: Tensor, input_metadata: Tensor,
+                         forecast_rhp: Tensor, decoder_metadata: Tensor, cat_index: Optional[Tensor] = None,
                          reference: Optional[Tensor] = None) -> list:
-        return [input_metadata, decoder_metadata, forecast_pslp]
+        return [input_metadata, decoder_metadata, forecast_rhp]
 
-    def predict(self, input_sequence: Tensor, input_pslp: Tensor, input_metadata: Tensor,
-                forecast_pslp: Tensor, decoder_metadata: Tensor, cat_index: Optional[Tensor] = None,
+    def predict(self, input_sequence: Tensor, input_rhp: Tensor, input_metadata: Tensor,
+                forecast_rhp: Tensor, decoder_metadata: Tensor, cat_index: Optional[Tensor] = None,
                 reference: Optional[Tensor] = None, raw: bool = False) -> Tensor:
         # protection from label abuse, but allows use of methods like teacher forcing
         if not self.training:
             assert reference is None, f'Evaluation cannot use labels for prediction'
 
         # this allows for advanced metadata_column_names selection and modification by redefining _select_metadata in the subclass
-        metadata = self._select_metadata(input_sequence, input_pslp, input_metadata, forecast_pslp, decoder_metadata,
+        metadata = self._select_metadata(input_sequence, input_rhp, input_metadata, forecast_rhp, decoder_metadata,
                                          cat_index, reference)
 
         if self.residual_input:
-            input_sequence -= input_pslp
+            input_sequence -= input_rhp
 
         batch_size = 1 if input_sequence.dim() < 3 else input_sequence.shape[0]
         input_sequence = self.embedding(input_sequence, input_metadata)
@@ -81,13 +81,13 @@ class Model(nn.Module):
         # fold feature dimension into (feature dimension, quantile dimension) if required
         if self.nr_of_quantiles is not None:
             prediction = prediction.unflatten(-1, [-1, self.nr_of_quantiles])
-            forecast_pslp = forecast_pslp.unsqueeze(-1).expand(*forecast_pslp.shape, self.nr_of_quantiles)
+            forecast_rhp = forecast_rhp.unsqueeze(-1).expand(*forecast_rhp.shape, self.nr_of_quantiles)
 
         if raw:
             return prediction
 
         if self.residual_forecast:
-            prediction = prediction + forecast_pslp
+            prediction = prediction + forecast_rhp
 
         return prediction
 

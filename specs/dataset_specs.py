@@ -3,7 +3,7 @@ import torch
 
 from typing import List, Optional, Type, TypeVar, Union, Tuple
 from data.normalizer import Normalizer, MinMax, AbsMax
-from data.pslp_datasets import LooseTypePSLPDataset, LooseTypeLastPSLPDataset, PersistenceDataset
+from data.rhp_datasets import LooseTypeRHPDataset, LooseTypeLastRHPDataset, PersistenceDataset
 
 
 __all__ = [
@@ -124,9 +124,9 @@ class DatasetSpec:
 @dataclass
 class ResidualDatasetSpec(DatasetSpec):
     residual_normalizer: Optional[Type[Normalizer]] = None
-    pslp_dataset: Union[Type[LooseTypePSLPDataset], Type[PersistenceDataset]] = LooseTypeLastPSLPDataset
-    pslp_cycles: int = 3
-    pslp_cycle_len: int = 7
+    rhp_dataset: Union[Type[LooseTypeRHPDataset], Type[PersistenceDataset]] = LooseTypeLastRHPDataset
+    rhp_cycles: int = 3
+    rhp_cycle_len: int = 7
 
 
 entsoe_de = DataSpec(file_name="entsoe_de",

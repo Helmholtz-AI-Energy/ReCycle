@@ -90,12 +90,12 @@ class OneshotTransformer(Model):
         return self.out(transformed)
 
     def forward(self, input_sequence: Tensor, batch_size: int, input_metadata: Optional[Tensor] = None,
-                decoder_metadata: Optional[Tensor] = None, forecast_pslp: Optional[Tensor] = None,
+                decoder_metadata: Optional[Tensor] = None, forecast_rhp: Optional[Tensor] = None,
                 reference: Optional[Tensor] = None) -> Tensor:
-        # if forecast_pslp.dim() != 3:
-        #     forecast_pslp = None
+        # if forecast_rhp.dim() != 3:
+        #     forecast_rhp = None
 
-        decoder_input = self._init_decoder_input(batch_size, forecast_pslp)
+        decoder_input = self._init_decoder_input(batch_size, forecast_rhp)
         decoder_input = self.embedding(decoder_input, decoder_metadata)
 
         result = self.process(input_sequence, decoder_input)

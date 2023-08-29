@@ -55,7 +55,7 @@ class MultiLayerPerceptron(Model):
         return self.layers(input_sequence)
 
     def forward(self, input_sequence: Tensor, batch_size: int, input_metadata: Optional[Tensor] = None,
-                decoder_metadata: Optional[Tensor] = None, forecast_pslp: Optional[Tensor] = None,
+                decoder_metadata: Optional[Tensor] = None, forecast_rhp: Optional[Tensor] = None,
                 reference: Optional[Tensor] = None) -> Tensor:
 
         model_input = torch.flatten(input_sequence, start_dim=1)

@@ -15,6 +15,6 @@ if __name__ == '__main__':
     )
     train_set, valid_set, tests_set = dataset_spec.create_datasets(dataset_class=ResidualDataset)
 
-    historic_data, historic_pslp, historic_metadata, pslp_forecast, forecast_metadata, cat_index, reference = train_set[0]
+    historic_data, historic_rhp, historic_metadata, rhp_forecast, forecast_metadata, cat_index, reference = train_set[0]
     fig, ax = plot_sample(historic_data.flatten(), reference.flatten())
     plt.show()

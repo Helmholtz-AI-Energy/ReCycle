@@ -157,20 +157,20 @@ class ModelFramework:
             cat_data = sample[-2]
             if raw:
             #    prediction = dataset.norm.revert_normalization(prediction, cat_data)
-                output_pslp = dataset.norm.revert_normalization(sample[3], cat_data)
+                output_rhp = dataset.norm.revert_normalization(sample[3], cat_data)
             input_reference = dataset.norm.revert_normalization(sample[0], cat_data)
             output_reference = dataset.norm.revert_normalization(sample[-1], cat_data)
         else:
             input_reference = sample[0]
             output_reference = sample[-1]
-            output_pslp = sample[3]
+            output_rhp = sample[3]
 
         if raw:
-            output_reference -= output_pslp
+            output_reference -= output_rhp
             if self.model.nr_of_quantiles is not None:
-                output_pslp = output_pslp.unsqueeze(-1).expand(*output_pslp.shape, self.model.nr_of_quantiles)
-            print(output_reference.shape, output_pslp.shape)
-            prediction -= output_pslp
+                output_rhp = output_rhp.unsqueeze(-1).expand(*output_rhp.shape, self.model.nr_of_quantiles)
+            print(output_reference.shape, output_rhp.shape)
+            prediction -= output_rhp
         return prediction, input_reference, output_reference
 
     def test_forecast(self, batch_size: int = 128, calibration: bool = False) -> pd.DataFrame:
@@ -220,7 +220,7 @@ class ModelFramework:
 
         return results.mean().to_frame().T
     
-    def test_pslp(self, batch_size: int = 128) -> Tensor:
+    def test_rhp(self, batch_size: int = 128) -> Tensor:
         self.mode('test')
         dataset = self.dataset()
         if batch_size > len(dataset):

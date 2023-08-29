@@ -75,11 +75,11 @@ if __name__ == '__main__':
 
     # parser.add_argument('--residual_normalizer', default='none',
     #                     help='normalization to use for residuals, check normalizers.py')
-    # parser.add_argument('--pslp_dataset', default='last_pslp', type=str,
-    #                     help='class of pslp to use, cf pslp_datasets.py')
-    parser.add_argument('--pslp_cycles', default=3, type=int, help='number of past instances to use for pslp')
-    parser.add_argument('--pslp_cycle_len', default=7, type=int,
-                        help='number of steps making occurrence of each pslp instance certain')
+    # parser.add_argument('--rhp_dataset', default='last_rhp', type=str,
+    #                     help='class of rhp to use, cf rhp_datasets.py')
+    parser.add_argument('--rhp_cycles', default=3, type=int, help='number of past instances to use for rhp')
+    parser.add_argument('--rhp_cycle_len', default=7, type=int,
+                        help='number of steps making occurrence of each rhp instance certain')
 
     # Data specifications
     parser.add_argument('--dataset_name', default=default_dataset,
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--test', action='store_true', default=True, help='evaluate error metrics on test set')
     parser.add_argument('--plot_prediction', action='store_true', default=False, help='plot some example predictions')
 
-    # TODO: enable parsing from string for: normalizer, residual_normalizer, pslp_dataset, loss and optimizer
+    # TODO: enable parsing from string for: normalizer, residual_normalizer, rhp_dataset, loss and optimizer
 
     parsed = vars(parser.parse_args())
 
