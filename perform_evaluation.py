@@ -22,7 +22,9 @@ def perform_evaluation(
         action_spec: ActionSpec,
         # For repeated runs the already built datasets can be reused
         premade_datasets: Optional[Tuple[ResidualDataset, ResidualDataset, ResidualDataset]] = None,
-) -> None:
+) -> Optional[float]:
+    action_spec.check_validity()
+
     if action_spec.load:
         load_path = (action_spec.load_path or action_spec.save_path)
         load_file = load_path + '_'.join([model_spec.model_name, dataset_spec.data_spec.file_name]) + '.pt'
@@ -43,6 +45,9 @@ def perform_evaluation(
 
     if action_spec.train:
         train_loss, valid_loss, best_loss = run.train_model(train_spec)
+
+        if action_spec.hyper_optimization_interrupt:
+            return best_loss
 
         if action_spec.save:
             # set upt save location

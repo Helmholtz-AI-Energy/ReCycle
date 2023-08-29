@@ -89,6 +89,8 @@ def spec_factory(
         test: bool = True,
         plot_prediction: bool = True,
 
+        hyper_optimization_interrupt: bool = False,
+
         **kwargs
 ) -> (ModelSpec, DatasetSpec, TrainSpec, ActionSpec):
     if model_args is None:
@@ -223,7 +225,8 @@ def spec_factory(
         load=load,
         load_path=load_path,
         test=test,
-        plot_prediction=plot_prediction
+        plot_prediction=plot_prediction,
+        hyper_optimization_interrupt=hyper_optimization_interrupt,
     )
 
     return model_spec, dataset_spec, train_spec, action_spec
