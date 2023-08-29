@@ -6,7 +6,9 @@ import torch
 from models import ModelFramework
 from utils.visualisation import plot_losses, plot_sample, plot_quantiles, plot_calibration
 
+from typing import Optional, Tuple
 from specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
+from data import ResidualDataset
 
 # Logging
 import logging
@@ -17,7 +19,9 @@ def perform_evaluation(
         model_spec: ModelSpec,
         dataset_spec: DatasetSpec,
         train_spec: TrainSpec,
-        action_spec: ActionSpec
+        action_spec: ActionSpec,
+        # For repeated runs the already built datasets can be reused
+        premade_datasets: Optional[Tuple[ResidualDataset, ResidualDataset, ResidualDataset]] = None,
 ) -> None:
     if action_spec.load:
         load_path = (action_spec.load_path or action_spec.save_path)
@@ -29,13 +33,13 @@ def perform_evaluation(
         model_spec.check_validity()
         dataset_spec.check_validity()
 
-        run = ModelFramework(model_spec, dataset_spec)
+        run = ModelFramework(model_spec, dataset_spec, premade_datasets=premade_datasets)
         run.model.load_state_dict(state_dict=state_dict)
     else:
         model_spec.check_validity()
         dataset_spec.check_validity()
 
-        run = ModelFramework(model_spec, dataset_spec)
+        run = ModelFramework(model_spec, dataset_spec, premade_datasets=premade_datasets)
 
     if action_spec.train:
         train_loss, valid_loss, best_loss = run.train_model(train_spec)
