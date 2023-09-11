@@ -1,6 +1,6 @@
-# Generalized Uncertainty Nonsense (GUN)
+# ReCycle - Residual Cyclic Time-Series Forecating
 
-Welcome to the RAI-GUN repository. This is mainly a central list for planned features right now
+Welcome to the RAI-ReCycle repository. This is a stub an will be expanded in the future
 
 ## Datasets
 
@@ -17,17 +17,11 @@ transfers to any repository using the same convention. As side effect all code
 in this repository needs to be run from its main directory for the relative 
 paths to work.
 
+This is a feature for development.
+
 Naming conventions can be found in `data/datset_bib.py`
 
-## Planned features
-- [x] Port Dataset
-  - [x] Dumb copy
-  - [x] Review dataset code
-- [ ] Dataset without PCC
-- [ ] Linear layer proof of concept
-- [ ] Functional model wrapper
 
-with [Pyro](http://pyro.ai) these might be useless or very different
-- [ ] Loss with step varying variance
-- [ ] Loss with sample dependent variance
-- [ ] Loss with fully flexible variance
+## Planned features
+ - [ ] Dataframe interface
+ - [ ] Packaging
