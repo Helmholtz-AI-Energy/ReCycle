@@ -22,18 +22,18 @@ class ActionSpec:
     :param bool hyper_optimization_interrupt: interrupts process after training and returns the validation loss for
         hyperparameter optimization, prevents plot_loss, save and test from taking effect
     """
-    train: bool = True,
-    plot_loss: bool = True,
+    train: bool = True
+    plot_loss: bool = True
 
-    save: bool = True,
-    save_path: Optional[str] = './saved_models/',
-    load: bool = False,
-    load_path: Optional[str] = None,
+    save: bool = True
+    save_path: Optional[str] = './saved_models/'
+    load: bool = False
+    load_path: Optional[str] = None
 
-    test: bool = True,
-    plot_prediction: bool = False,
+    test: bool = True
+    plot_prediction: bool = False
 
-    hyper_optimization_interrupt: bool = False,
+    hyper_optimization_interrupt: bool = False
 
     def check_validity(self) -> None:
         if self.save:

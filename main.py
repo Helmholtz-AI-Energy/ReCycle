@@ -15,10 +15,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Load forecasting evaluation framework')
 
     default_model = 'Transformer'
-    default_dataset = 'entsoe_de'
+    default_dataset = 'water'
 
     custom_quantiles = False
-    quantiles = 9
+    quantiles = None
     assume_symmetric_quantiles = False
     invert = False
 
@@ -48,8 +48,8 @@ if __name__ == '__main__':
     parser.add_argument('--meta_features', default=9, type=int, help='number of metadata_column_names features')
     parser.add_argument('--d_model', default=32, type=int, help='number of features after embedding')
     parser.add_argument('--embedding', default='default', help='embedding to use, check embeddings.py')
-    parser.add_argument('--residual_input', default=False, type=bool, help='whether to use residual inputs')
-    parser.add_argument('--residual_forecast', default=False, type=bool, help='whether to make residual forecasts')
+    parser.add_argument('--residual_input', default=True, type=bool, help='whether to use residual inputs')
+    parser.add_argument('--residual_forecast', default=True, type=bool, help='whether to make residual forecasts')
     parser.add_argument('--custom_quantiles', default=custom_quantiles, type=bool,
                         help='whether to use hardcoded quantiles')
     parser.add_argument('--quantiles', default=quantiles, type=int, help='number of quantiles for autogeneration')
