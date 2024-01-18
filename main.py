@@ -1,7 +1,7 @@
 import argparse
 
-from specs import spec_factory
-from perform_evaluation import perform_evaluation
+from ReCycle import spec_factory
+from ReCycle import perform_evaluation
 
 # Logging
 import logging
