@@ -18,6 +18,7 @@ class Model(nn.Module):
     Each model should call this __init__ on initialization and implement the process method.
     New models should be added to models/__init__.py
     """
+
     def __init__(self, model_spec: ModelSpec) -> None:
         super(Model, self).__init__()
         model_spec.check_validity()
@@ -39,7 +40,9 @@ class Model(nn.Module):
         self.historic_window = model_spec.historic_window
         self.forecast_window = model_spec.forecast_window
         self.nr_of_quantiles = model_spec.quantiles
-        self.output_features = (model_spec.quantiles or 1) * model_spec.features_per_step
+        self.output_features = (
+            model_spec.quantiles or 1
+        ) * model_spec.features_per_step
 
         # Residual forecasting specifications
         self.residual_input = model_spec.residual_input
@@ -49,27 +52,54 @@ class Model(nn.Module):
     def _get_device():
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def forward(self, input_sequence: Tensor, batch_size: int, input_metadata: Optional[Tensor] = None,
-                decoder_metadata: Optional[Tensor] = None, forecast_rhp: Optional[Tensor] = None,
-                reference: Optional[Tensor] = None) -> Tensor:
-
+    def forward(
+        self,
+        input_sequence: Tensor,
+        batch_size: int,
+        input_metadata: Optional[Tensor] = None,
+        decoder_metadata: Optional[Tensor] = None,
+        forecast_rhp: Optional[Tensor] = None,
+        reference: Optional[Tensor] = None,
+    ) -> Tensor:
         raise NotImplementedError
 
-    def _select_metadata(self, input_sequence: Tensor, input_rhp: Tensor, input_metadata: Tensor,
-                         forecast_rhp: Tensor, decoder_metadata: Tensor, cat_index: Optional[Tensor] = None,
-                         reference: Optional[Tensor] = None) -> list:
+    def _select_metadata(
+        self,
+        input_sequence: Tensor,
+        input_rhp: Tensor,
+        input_metadata: Tensor,
+        forecast_rhp: Tensor,
+        decoder_metadata: Tensor,
+        cat_index: Optional[Tensor] = None,
+        reference: Optional[Tensor] = None,
+    ) -> list:
         return [input_metadata, decoder_metadata, forecast_rhp]
 
-    def predict(self, input_sequence: Tensor, input_rhp: Tensor, input_metadata: Tensor,
-                forecast_rhp: Tensor, decoder_metadata: Tensor, cat_index: Optional[Tensor] = None,
-                reference: Optional[Tensor] = None, raw: bool = False) -> Tensor:
+    def predict(
+        self,
+        input_sequence: Tensor,
+        input_rhp: Tensor,
+        input_metadata: Tensor,
+        forecast_rhp: Tensor,
+        decoder_metadata: Tensor,
+        cat_index: Optional[Tensor] = None,
+        reference: Optional[Tensor] = None,
+        raw: bool = False,
+    ) -> Tensor:
         # protection from label abuse, but allows use of methods like teacher forcing
         if not self.training:
-            assert reference is None, f'Evaluation cannot use labels for prediction'
+            assert reference is None, f"Evaluation cannot use labels for prediction"
 
         # this allows for advanced metadata_column_names selection and modification by redefining _select_metadata in the subclass
-        metadata = self._select_metadata(input_sequence, input_rhp, input_metadata, forecast_rhp, decoder_metadata,
-                                         cat_index, reference)
+        metadata = self._select_metadata(
+            input_sequence,
+            input_rhp,
+            input_metadata,
+            forecast_rhp,
+            decoder_metadata,
+            cat_index,
+            reference,
+        )
 
         if self.residual_input:
             input_sequence -= input_rhp
@@ -81,7 +111,9 @@ class Model(nn.Module):
         # fold feature dimension into (feature dimension, quantile dimension) if required
         if self.nr_of_quantiles is not None:
             prediction = prediction.unflatten(-1, [-1, self.nr_of_quantiles])
-            forecast_rhp = forecast_rhp.unsqueeze(-1).expand(*forecast_rhp.shape, self.nr_of_quantiles)
+            forecast_rhp = forecast_rhp.unsqueeze(-1).expand(
+                *forecast_rhp.shape, self.nr_of_quantiles
+            )
 
         if raw:
             return prediction
@@ -91,7 +123,9 @@ class Model(nn.Module):
 
         return prediction
 
-    def train_epoch(self, train_dataloader: DataLoader, criterion: Module, optimizer: Optimizer) -> Tensor:
+    def train_epoch(
+        self, train_dataloader: DataLoader, criterion: Module, optimizer: Optimizer
+    ) -> Tensor:
         self.train()
 
         total_loss = torch.zeros(len(train_dataloader), device=self.device)
@@ -115,7 +149,7 @@ class Model(nn.Module):
         self.eval()
 
         with torch.no_grad():
-            total_loss = torch.tensor(0., device=self.device)
+            total_loss = torch.tensor(0.0, device=self.device)
             for batch in valid_dataloader:
                 # Predict, evaluate and track loss
                 prediction = self.predict(*batch[:-1])  # Evaluation may not use labels

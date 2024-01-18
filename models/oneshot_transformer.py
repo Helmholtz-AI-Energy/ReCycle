@@ -8,6 +8,7 @@ from typing import Optional
 from torch import Tensor
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +29,8 @@ class OneshotTransformer(Model):
                 dim_feedforward=model_spec.dim_feedforward,
                 dropout=model_spec.dropout,
                 batch_first=True,
-                device=self.device)
+                device=self.device,
+            )
         else:
             encoder_layers = nn.TransformerEncoderLayer(
                 d_model=self.d_model,
@@ -36,28 +38,37 @@ class OneshotTransformer(Model):
                 dim_feedforward=self.d_hid,
                 dropout=model_spec.dropout,
                 batch_first=True,
-                device=self.device)
-            encoder = nn.TransformerEncoder(encoder_layers, model_spec.num_encoder_layers)
+                device=self.device,
+            )
+            encoder = nn.TransformerEncoder(
+                encoder_layers, model_spec.num_encoder_layers
+            )
             decoder_layers = nn.TransformerDecoderLayer(
                 d_model=self.d_model,
                 nhead=model_spec.nheads,
                 dim_feedforward=model_spec.dim_feedforward,
                 dropout=model_spec.dropout,
                 batch_first=True,
-                device=self.device)
-            decoder = nn.TransformerDecoder(decoder_layers, model_spec.num_decoder_layers)
+                device=self.device,
+            )
+            decoder = nn.TransformerDecoder(
+                decoder_layers, model_spec.num_decoder_layers
+            )
             self.transformer = nn.Transformer(
                 d_model=self.d_model,
                 nhead=model_spec.nheads,
                 custom_encoder=encoder,
                 custom_decoder=decoder,
                 batch_first=True,
-                device=self.device)
+                device=self.device,
+            )
 
         if self.d_model == self.output_features:
             self.out = nn.Identity()
         else:
-            linear_layer = nn.Linear(self.d_model, self.output_features, device=self.device)
+            linear_layer = nn.Linear(
+                self.d_model, self.output_features, device=self.device
+            )
             dropout_layer = nn.Dropout(model_spec.dropout)
             self.out = nn.Sequential(dropout_layer, linear_layer)
 
@@ -76,10 +87,15 @@ class OneshotTransformer(Model):
 
         self.meta_token = model_spec.meta_token
 
-    def _init_decoder_input(self, batch_size: int, output_metadata: Optional[Tensor] = None) -> Tensor:
+    def _init_decoder_input(
+        self, batch_size: int, output_metadata: Optional[Tensor] = None
+    ) -> Tensor:
         """Returns the correct zero vector for decoder input"""
         if not self.meta_token:
-            return torch.zeros((batch_size, self.forecast_window, self.input_features), device=self.device)#.squeeze(0)
+            return torch.zeros(
+                (batch_size, self.forecast_window, self.input_features),
+                device=self.device,
+            )  # .squeeze(0)
         else:
             return output_metadata
 
@@ -89,9 +105,15 @@ class OneshotTransformer(Model):
         transformed = self.transformer(encoder_input, decoder_input)
         return self.out(transformed)
 
-    def forward(self, input_sequence: Tensor, batch_size: int, input_metadata: Optional[Tensor] = None,
-                decoder_metadata: Optional[Tensor] = None, forecast_rhp: Optional[Tensor] = None,
-                reference: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self,
+        input_sequence: Tensor,
+        batch_size: int,
+        input_metadata: Optional[Tensor] = None,
+        decoder_metadata: Optional[Tensor] = None,
+        forecast_rhp: Optional[Tensor] = None,
+        reference: Optional[Tensor] = None,
+    ) -> Tensor:
         # if forecast_rhp.dim() != 3:
         #     forecast_rhp = None
 

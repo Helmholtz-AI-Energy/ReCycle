@@ -5,9 +5,7 @@ from torch.nn.modules.loss import _Loss, L1Loss
 from torch.optim import Optimizer, Adam
 
 
-__all__ = {
-    'TrainSpec'
-}
+__all__ = {"TrainSpec"}
 
 
 @dataclass
@@ -24,7 +22,8 @@ class TrainSpec:
     :param dict optimizer_args: additional arguments to be provided to the optimizer
     :param bool profiling: enables profiling for the training loop
     """
-    learning_rate: float = -3.
+
+    learning_rate: float = -3.0
     batch_size: int = 32
     epochs: int = 200
     patience: int = 20

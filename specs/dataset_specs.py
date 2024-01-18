@@ -3,14 +3,18 @@ import torch
 
 from typing import List, Optional, Type, TypeVar, Union, Tuple
 from data.normalizer import Normalizer, MinMax, AbsMax
-from data.rhp_datasets import LooseTypeRHPDataset, LooseTypeLastRHPDataset, PersistenceDataset
+from data.rhp_datasets import (
+    LooseTypeRHPDataset,
+    LooseTypeLastRHPDataset,
+    PersistenceDataset,
+)
 
 
 __all__ = [
-    'DataSpec',
-    'get_data_spec',
-    'DatasetSpec',
-    'ResidualDatasetSpec',
+    "DataSpec",
+    "get_data_spec",
+    "DatasetSpec",
+    "ResidualDatasetSpec",
 ]
 
 
@@ -41,6 +45,7 @@ class DataSpec:
     :param Optional[str] ylabel: label of the value axis for plotting
     :param str root_path: path where dataset file is stored, should generally be "./datasets/", see README
     """
+
     file_name: Union[str, Tuple[str, str, str]]
     time_column_name: str
     data_column_names: Optional[List[str]] = None
@@ -54,16 +59,18 @@ class DataSpec:
     ylabel: Optional[str] = "Consumption"
     root_path: str = "./datasets/"
 
-    def full_file_path(self, file_extension: str = '.csv') -> Union[str, Tuple[str, str, str]]:
+    def full_file_path(
+        self, file_extension: str = ".csv"
+    ) -> Union[str, Tuple[str, str, str]]:
         if type(self.file_name) == str:
             return self.root_path + self.file_name + file_extension
         elif type(self.file_name) == Tuple[str, str, str]:
             return tuple([self.root_path + f + file_extension for f in self.file_name])
         else:
-            raise TypeError('Invalid file_name specification')
+            raise TypeError("Invalid file_name specification")
 
 
-SPEC = TypeVar('SPEC')
+SPEC = TypeVar("SPEC")
 
 
 @dataclass
@@ -82,6 +89,7 @@ class DatasetSpec:
     :param Optional[float] reduce: float between 0 and 1, uses a fraction of the data for speedup during testing
     :param Optional[torch.device] device: GPU or CPU to use, if None autodetection is used
     """
+
     historic_window: int
     forecast_window: int
     features_per_step: int
@@ -99,23 +107,35 @@ class DatasetSpec:
         return cls(*args, data_spec=data_spec, **kwargs)
 
     def check_validity(self) -> None:
-        assert 0 <= self.train_share, f'{self.train_share=} should be greater or equal 0'
-        assert 0 <= self.tests_share, f'{self.tests_share=} should be greater or equal 0'
-        assert 1 >= self.train_share, f'{self.train_share=} should be smaller or equal 1'
-        assert 1 >= self.tests_share, f'{self.tests_share=} should be smaller or equal 1'
-        assert (self.train_share + self.tests_share) <= 1, (f'The sum of {self.train_share=} and {self.tests_share}'
-                                                            f'should be smaller than 1')
+        assert (
+            0 <= self.train_share
+        ), f"{self.train_share=} should be greater or equal 0"
+        assert (
+            0 <= self.tests_share
+        ), f"{self.tests_share=} should be greater or equal 0"
+        assert (
+            1 >= self.train_share
+        ), f"{self.train_share=} should be smaller or equal 1"
+        assert (
+            1 >= self.tests_share
+        ), f"{self.tests_share=} should be smaller or equal 1"
+        assert (self.train_share + self.tests_share) <= 1, (
+            f"The sum of {self.train_share=} and {self.tests_share}"
+            f"should be smaller than 1"
+        )
         if self.reduce is not None:
-            assert 0 <= self.reduce, f'{self.reduce=} should be greater or equal 0'
-            assert 1 >= self.reduce, f'{self.reduce=} should be smaller or equal 1'
+            assert 0 <= self.reduce, f"{self.reduce=} should be greater or equal 0"
+            assert 1 >= self.reduce, f"{self.reduce=} should be smaller or equal 1"
 
     # TODO: there should be some mechanism to use different dataset classes
-    def create_datasets(self, dataset_class: Optional[Type['TimeSeriesDataset']] = None)\
-            -> Tuple['TimeSeriesDataset', 'TimeSeriesDataset', 'TimeSeriesDataset']:
+    def create_datasets(
+        self, dataset_class: Optional[Type["TimeSeriesDataset"]] = None
+    ) -> Tuple["TimeSeriesDataset", "TimeSeriesDataset", "TimeSeriesDataset"]:
         self.check_validity()
 
         if dataset_class is None:
             from data import ResidualDataset
+
             dataset_class = ResidualDataset
 
         return dataset_class.from_csv(dataset_spec=self)
@@ -124,93 +144,134 @@ class DatasetSpec:
 @dataclass
 class ResidualDatasetSpec(DatasetSpec):
     residual_normalizer: Optional[Type[Normalizer]] = None
-    rhp_dataset: Union[Type[LooseTypeRHPDataset], Type[PersistenceDataset]] = LooseTypeLastRHPDataset
+    rhp_dataset: Union[
+        Type[LooseTypeRHPDataset], Type[PersistenceDataset]
+    ] = LooseTypeLastRHPDataset
     rhp_cycles: int = 3
     rhp_cycle_len: int = 7
 
 
-entsoe_de = DataSpec(file_name="entsoe_de",
-                     country_code="de",
-                     data_column_names=["load"],
-                     time_column_name="start",
-                     downsample_rate=4,
-                     ylabel="Load [MW]")
+entsoe_de = DataSpec(
+    file_name="entsoe_de",
+    country_code="de",
+    data_column_names=["load"],
+    time_column_name="start",
+    downsample_rate=4,
+    ylabel="Load [MW]",
+)
 
-entsoe_full = DataSpec(file_name="entsoe_full",
-                       country_code=None,
-                       universal_holidays=False,
-                       data_column_names=["fr", "de", "no", "gb", "se", "ie", "it", "es", "pt", "ch", "at", "dk", "nl", "be"],
-                       time_column_name="Time [s]",
-                       ylabel="Load [MW]")
+entsoe_full = DataSpec(
+    file_name="entsoe_full",
+    country_code=None,
+    universal_holidays=False,
+    data_column_names=[
+        "fr",
+        "de",
+        "no",
+        "gb",
+        "se",
+        "ie",
+        "it",
+        "es",
+        "pt",
+        "ch",
+        "at",
+        "dk",
+        "nl",
+        "be",
+    ],
+    time_column_name="Time [s]",
+    ylabel="Load [MW]",
+)
 
-water = DataSpec(file_name="water",
-                 country_code="de",
-                 data_column_names=["Consumption"],
-                 time_column_name="Date",
-                 ylabel="Water Consumption [a.u.]")
+water = DataSpec(
+    file_name="water",
+    country_code="de",
+    data_column_names=["Consumption"],
+    time_column_name="Date",
+    ylabel="Water Consumption [a.u.]",
+)
 
-uci_pt = DataSpec(file_name="uci_pt",
-                  country_code="pt",
-                  data_column_names=["MT_320"],
-                  time_column_name="datetime",
-                  split_by_category=False,
-                  remove_flatline=True,
-                  ylabel="Load [kW]")
+uci_pt = DataSpec(
+    file_name="uci_pt",
+    country_code="pt",
+    data_column_names=["MT_320"],
+    time_column_name="datetime",
+    split_by_category=False,
+    remove_flatline=True,
+    ylabel="Load [kW]",
+)
 
-informer_etth1 = DataSpec(file_name="etth1",
-                          country_code="cn",
-                          data_column_names=["OT"],
-                          time_column_name="date",
-                          ylabel='Temperature [$^\circ$C]')
+informer_etth1 = DataSpec(
+    file_name="etth1",
+    country_code="cn",
+    data_column_names=["OT"],
+    time_column_name="date",
+    ylabel="Temperature [$^\circ$C]",
+)
 
-informer_etth2 = DataSpec(file_name="etth2",
-                          country_code="cn",
-                          data_column_names=["OT"],
-                          time_column_name="date",
-                          ylabel='Temperature [$^\circ$C]')
+informer_etth2 = DataSpec(
+    file_name="etth2",
+    country_code="cn",
+    data_column_names=["OT"],
+    time_column_name="date",
+    ylabel="Temperature [$^\circ$C]",
+)
 
-minigrid = DataSpec(file_name="minigrid",
-                    country_code="de",
-                    data_column_names=["Load"],
-                    time_column_name="date",
-                    downsample_rate=None,
-                    ylabel=' Consumption [kWh]')
+minigrid = DataSpec(
+    file_name="minigrid",
+    country_code="de",
+    data_column_names=["Load"],
+    time_column_name="date",
+    downsample_rate=None,
+    ylabel=" Consumption [kWh]",
+)
 
-solar = DataSpec(file_name="solar",
-                 country_code="us",
-                 data_column_names=["solar_mw"],
-                 time_column_name="Datetime")
+solar = DataSpec(
+    file_name="solar",
+    country_code="us",
+    data_column_names=["solar_mw"],
+    time_column_name="Datetime",
+)
 
-prices = DataSpec(file_name="prices",
-                  country_code="de",
-                  data_column_names=["Day-ahead Price [EUR/MWh]"],
-                  time_column_name="MTU (CET/CEST)",
-                  downsample_rate=4)
+prices = DataSpec(
+    file_name="prices",
+    country_code="de",
+    data_column_names=["Day-ahead Price [EUR/MWh]"],
+    time_column_name="MTU (CET/CEST)",
+    downsample_rate=4,
+)
 
-traffic = DataSpec(file_name="traffic_new",
-                   country_code="us",
-                   data_column_names=["VMT (Veh-Miles)"],
-                   time_column_name="Hour")
+traffic = DataSpec(
+    file_name="traffic_new",
+    country_code="us",
+    data_column_names=["VMT (Veh-Miles)"],
+    time_column_name="Hour",
+)
 
-former_traffic = DataSpec(file_name="traffic_old",
-                          country_code="us",
-                          data_column_names=["OT"],
-                          time_column_name="date")
+former_traffic = DataSpec(
+    file_name="traffic_old",
+    country_code="us",
+    data_column_names=["OT"],
+    time_column_name="date",
+)
 
-specs_dict = dict(entsoe_de=entsoe_de,
-                  entsoe_full=entsoe_full,
-                  water=water,
-                  uci_pt=uci_pt,
-                  etth1=informer_etth1,
-                  etth2=informer_etth2,
-                  minigrid=minigrid,
-                  solar=solar,
-                  prices=prices,
-                  traffic=traffic,
-                  former_traffic=former_traffic)
+specs_dict = dict(
+    entsoe_de=entsoe_de,
+    entsoe_full=entsoe_full,
+    water=water,
+    uci_pt=uci_pt,
+    etth1=informer_etth1,
+    etth2=informer_etth2,
+    minigrid=minigrid,
+    solar=solar,
+    prices=prices,
+    traffic=traffic,
+    former_traffic=former_traffic,
+)
 
 
 def get_data_spec(name: str) -> DataSpec:
-    assert name in specs_dict, f'There is no know dataset specification {name}'
+    assert name in specs_dict, f"There is no know dataset specification {name}"
     spec = specs_dict[name]
     return spec

@@ -18,10 +18,11 @@ from numpy import float32
 
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
-D = TypeVar('D')
+D = TypeVar("D")
 
 
 class TimeSeriesDataset(Dataset, ABC):
@@ -49,7 +50,7 @@ class ResidualDataset(Dataset):
         data = data.reset_index(drop=True)  # Quenches SettingWithCopyWarning
         logger.debug(data)
         if dataset_spec.reduce is not None:
-            data = data[:int(len(data) * dataset_spec.reduce)]
+            data = data[: int(len(data) * dataset_spec.reduce)]
 
         # input_data and metadata_dict column names
         self.target = data_spec.data_column_names
@@ -69,7 +70,7 @@ class ResidualDataset(Dataset):
         self.total_window_features = self.historic_features + self.forecast_features
 
         # Set datatype
-        logger.debug(f'{self.target=}')
+        logger.debug(f"{self.target=}")
         data[self.target] = data[self.target].astype(float32)
 
         # save type fixed dataframe
@@ -77,8 +78,12 @@ class ResidualDataset(Dataset):
 
         # rhp specifications
         self.rhp_cycles = dataset_spec.rhp_cycles  # nr of weeks/long cycles for rhp
-        self.rhp_cycle_len = dataset_spec.rhp_cycle_len  # nr of days/primary cycles per week/long cycle
-        self.rhp_window = self.rhp_cycles * self.rhp_cycle_len  # nr of primary cycles in rhp
+        self.rhp_cycle_len = (
+            dataset_spec.rhp_cycle_len
+        )  # nr of days/primary cycles per week/long cycle
+        self.rhp_window = (
+            self.rhp_cycles * self.rhp_cycle_len
+        )  # nr of primary cycles in rhp
 
         # raw input_data as tensor, make categories first dim
         self.unnormalized_data = torch.tensor(data[self.target].values).t()
@@ -89,8 +94,12 @@ class ResidualDataset(Dataset):
 
         # reshape data into cycles (days)
         self.categories = len(self.target)
-        self.normalized_data = self.normalized_data.reshape(self.categories, -1, self.features_per_step)
-        self.unnormalized_data = self.unnormalized_data.reshape(self.categories, -1, self.features_per_step)
+        self.normalized_data = self.normalized_data.reshape(
+            self.categories, -1, self.features_per_step
+        )
+        self.unnormalized_data = self.unnormalized_data.reshape(
+            self.categories, -1, self.features_per_step
+        )
 
         # Category input_data
         self.samples_per_category, self.start_indices = self._category_lengths()
@@ -102,21 +111,31 @@ class ResidualDataset(Dataset):
 
         # generate metadata_dict and rhp
         self.metadata = self._generate_metadata()
-        self.rhp_data = dataset_spec.rhp_dataset(self.dataframe, self.rhp_cycles, self.target,
-                                                   self.time_column, self.norm, self._universal_holidays)
+        self.rhp_data = dataset_spec.rhp_dataset(
+            self.dataframe,
+            self.rhp_cycles,
+            self.target,
+            self.time_column,
+            self.norm,
+            self._universal_holidays,
+        )
 
         # generate naive error estimate
         catergory_naive_mae = []
         for start, category in zip(self.start_indices, self.unnormalized_data):
             scale = 0
-            valid_data = category[start+self.rhp_window:-1]
+            valid_data = category[start + self.rhp_window : -1]
             for f in range(self.forecast_window):
                 # Using some reshuffling the MAE for each day in each forecast window with respect to the last known
                 # day can be calculated
-                naive_forecast = valid_data[self.historic_window - 1 : -self.forecast_window]
-                reference = valid_data[self.historic_window + f: f + 1 - self.forecast_window]
-                if f+1 == self.forecast_window:
-                    reference = valid_data[self.historic_window + f:]
+                naive_forecast = valid_data[
+                    self.historic_window - 1 : -self.forecast_window
+                ]
+                reference = valid_data[
+                    self.historic_window + f : f + 1 - self.forecast_window
+                ]
+                if f + 1 == self.forecast_window:
+                    reference = valid_data[self.historic_window + f :]
                 loss = l1_loss(naive_forecast, reference)
                 scale += loss
             catergory_naive_mae.append(scale / self.forecast_window)
@@ -137,28 +156,40 @@ class ResidualDataset(Dataset):
     def to(self, device: Optional[torch.device] = None, *args, **kwargs):
         if device is not None:
             self.device = device
-            logger.info(f'Transferring to {self.device}')
+            logger.info(f"Transferring to {self.device}")
             print([torch.device(i) for i in range(torch.cuda.device_count())])
 
         # Data tensors
-        self.unnormalized_data = self.unnormalized_data.to(*args, device=self.device, **kwargs)
-        self.normalized_data = self.normalized_data.to(*args, device=self.device, **kwargs)
+        self.unnormalized_data = self.unnormalized_data.to(
+            *args, device=self.device, **kwargs
+        )
+        self.normalized_data = self.normalized_data.to(
+            *args, device=self.device, **kwargs
+        )
         self.metadata = self.metadata.to(*args, device=self.device, **kwargs)
 
         # Misc tensors
-        self.samples_per_category = self.samples_per_category.to(*args, device=self.device, **kwargs)
+        self.samples_per_category = self.samples_per_category.to(
+            *args, device=self.device, **kwargs
+        )
         self.start_indices = self.start_indices.to(*args, device=self.device, **kwargs)
-        self.cumulative_samples = self.cumulative_samples.to(*args, device=self.device, **kwargs)
-        self.catergory_naive_mae = self.catergory_naive_mae.to(*args, device=device, **kwargs)
+        self.cumulative_samples = self.cumulative_samples.to(
+            *args, device=self.device, **kwargs
+        )
+        self.catergory_naive_mae = self.catergory_naive_mae.to(
+            *args, device=device, **kwargs
+        )
 
         # Objects that only need to transfer their members
         self.rhp_data.to(*args, device=self.device, **kwargs)
         self.norm.to(*args, device=self.device, **kwargs)
-        #self.residual_norm.to(*args, device=self.device, **kwargs)
+        # self.residual_norm.to(*args, device=self.device, **kwargs)
 
     def __len__(self) -> int:
-        length = self.cumulative_samples[-1] #- self.rhp_window * self.categories
-        logger.debug(f'{length=}, {self.cumulative_samples[-1]=}, {self.rhp_window=}, {self.categories=}')
+        length = self.cumulative_samples[-1]  # - self.rhp_window * self.categories
+        logger.debug(
+            f"{length=}, {self.cumulative_samples[-1]=}, {self.rhp_window=}, {self.categories=}"
+        )
         return length
 
     def _category_lengths(self) -> Tuple[Tensor, Tensor]:
@@ -170,44 +201,67 @@ class ResidualDataset(Dataset):
             lengths.append(len(cat_data) - first_index)
             starts.append(first_index)
 
-        features = torch.tensor(lengths) - self.total_window_features  # consider window length
-        cat_lengths = torch.div(features, self.features_per_step, rounding_mode='floor')  # convert to days/cycles
+        features = (
+            torch.tensor(lengths) - self.total_window_features
+        )  # consider window length
+        cat_lengths = torch.div(
+            features, self.features_per_step, rounding_mode="floor"
+        )  # convert to days/cycles
         cat_lengths -= self.rhp_window  # consider rhp run up
 
-        start_indices = torch.div(torch.tensor(starts), self.features_per_step, rounding_mode='floor')
-        logger.debug(f'{cat_lengths=}, {start_indices=}')
+        start_indices = torch.div(
+            torch.tensor(starts), self.features_per_step, rounding_mode="floor"
+        )
+        logger.debug(f"{cat_lengths=}, {start_indices=}")
         return cat_lengths.clone(), start_indices.clone()
 
     def _generate_metadata(self) -> Tensor:
         # get holiday metadata_dict (only first entry per timestep)
-        logger.debug(f'{self.dataframe.columns=}')
+        logger.debug(f"{self.dataframe.columns=}")
         if self._universal_holidays:
-            holiday_data = torch.tensor(self.dataframe.loc[0::self.features_per_step,
-                                        ['holiday', 'holiday_tomorrow']].values)
+            holiday_data = torch.tensor(
+                self.dataframe.loc[
+                    0 :: self.features_per_step, ["holiday", "holiday_tomorrow"]
+                ].values
+            )
             holiday_data = holiday_data.expand(self.categories, -1, -1)
         else:
-            holiday_data = [torch.tensor(self.dataframe.loc[0::self.features_per_step,
-                                         ['holiday_' + country, 'holiday_' + country + '_tomorrow']].values)
-                            for country in self.target]
+            holiday_data = [
+                torch.tensor(
+                    self.dataframe.loc[
+                        0 :: self.features_per_step,
+                        ["holiday_" + country, "holiday_" + country + "_tomorrow"],
+                    ].values
+                )
+                for country in self.target
+            ]
             holiday_data = torch.stack(holiday_data, dim=0)
 
         # get weekday annotation
-        weekdays = torch.tensor(self.dataframe.loc[0::self.features_per_step, self.time_column].dt.weekday.values,
-                                dtype=torch.int64)
+        weekdays = torch.tensor(
+            self.dataframe.loc[
+                0 :: self.features_per_step, self.time_column
+            ].dt.weekday.values,
+            dtype=torch.int64,
+        )
         weekdays = one_hot(weekdays, num_classes=7).expand(self.categories, -1, -1)
 
         # join tensors
-        logger.debug(f'{weekdays.shape=}, {holiday_data.shape=}')
+        logger.debug(f"{weekdays.shape=}, {holiday_data.shape=}")
         metadata = torch.cat([weekdays, holiday_data], dim=-1)
         return metadata
 
     def verify(self) -> None:
-        assert self.unnormalized_data.shape == self.normalized_data.shape, 'Normalizer changes input_data layout'
-        logger.info(f'Dataset length: {self.__len__()}')
+        assert (
+            self.unnormalized_data.shape == self.normalized_data.shape
+        ), "Normalizer changes input_data layout"
+        logger.info(f"Dataset length: {self.__len__()}")
 
     @staticmethod
-    def split_data(full_data: DataFrame, dataset_spec: DatasetSpec) -> (Tuple[DataFrame], Tuple[List]):
-        logger.info('Splitting dataset')
+    def split_data(
+        full_data: DataFrame, dataset_spec: DatasetSpec
+    ) -> (Tuple[DataFrame], Tuple[List]):
+        logger.info("Splitting dataset")
         dataset_spec.check_validity()
         target = dataset_spec.data_spec.data_column_names
 
@@ -228,33 +282,53 @@ class ResidualDataset(Dataset):
 
             # Obtain sizes for training, validation and test set
             nr_of_days = len(full_data) // dataset_spec.features_per_step
-            train_len = int(nr_of_days * dataset_spec.train_share) * dataset_spec.features_per_step
-            tests_len = - int(nr_of_days * dataset_spec.tests_share) * dataset_spec.features_per_step
+            train_len = (
+                int(nr_of_days * dataset_spec.train_share)
+                * dataset_spec.features_per_step
+            )
+            tests_len = (
+                -int(nr_of_days * dataset_spec.tests_share)
+                * dataset_spec.features_per_step
+            )
             if len(full_data) % dataset_spec.features_per_step != 0:
-                logger.warning('Dataset does not contain a flat number of cycles')
+                logger.warning("Dataset does not contain a flat number of cycles")
 
             # Split residuals accordingly
             train_data = full_data[:train_len]
             valid_data = full_data[train_len:tests_len]
-            tests_data = full_data[tests_len:nr_of_days * dataset_spec.features_per_step]
+            tests_data = full_data[
+                tests_len : nr_of_days * dataset_spec.features_per_step
+            ]
 
-        return (train_data, valid_data, tests_data), (train_target, valid_target, tests_target)
+        return (train_data, valid_data, tests_data), (
+            train_target,
+            valid_target,
+            tests_target,
+        )
 
-    SET = TypeVar('SET')
+    SET = TypeVar("SET")
 
     @classmethod
     def from_csv(cls: SET, dataset_spec: ResidualDatasetSpec) -> Tuple[SET, SET, SET]:
-        logger.info('Reading from csv')
+        logger.info("Reading from csv")
 
-        file = dataset_spec.data_spec.full_file_path(file_extension='.csv')
+        file = dataset_spec.data_spec.full_file_path(file_extension=".csv")
         if isinstance(file, str):
             full_data = pd.read_csv(file)
-            full_data, data_column_names = clean_dataframe(df=full_data, data_spec=dataset_spec.data_spec)
-            assert dataset_spec.data_spec.data_column_names == data_column_names, 'Turns out it is pass by copy'
-            logger.info('Dataframe prepared')
-            dataframes, targets = cls.split_data(full_data=full_data, dataset_spec=dataset_spec)
+            full_data, data_column_names = clean_dataframe(
+                df=full_data, data_spec=dataset_spec.data_spec
+            )
+            assert (
+                dataset_spec.data_spec.data_column_names == data_column_names
+            ), "Turns out it is pass by copy"
+            logger.info("Dataframe prepared")
+            dataframes, targets = cls.split_data(
+                full_data=full_data, dataset_spec=dataset_spec
+            )
         elif isinstance(file, List):
-            assert len(file) == 3, 'Must proved exactly 3 paths for train, validation and test set'
+            assert (
+                len(file) == 3
+            ), "Must proved exactly 3 paths for train, validation and test set"
             dataframes = []
             targets = []
             for f in file:
@@ -262,42 +336,50 @@ class ResidualDataset(Dataset):
                 f, t = clean_dataframe(df=data, data_spec=dataset_spec.data_spec)
                 dataframes.append(f)
                 targets.append(t)
-            logger.info('Dataframes prepared')
+            logger.info("Dataframes prepared")
         else:
-            raise TypeError(f'Invalid file specification: {file}')
+            raise TypeError(f"Invalid file specification: {file}")
 
         train_data, valid_data, tests_data = dataframes
         train_target, valid_target, tests_target = targets
 
         dataset_spec.data_spec.data_column_names = train_target
         train_set = cls(data=train_data, dataset_spec=dataset_spec)
-        logger.info('Training input_data loaded')
+        logger.info("Training input_data loaded")
         dataset_spec.data_spec.data_column_names = valid_target
         valid_set = cls(data=valid_data, dataset_spec=dataset_spec)
-        logger.info('Validation input_data loaded')
+        logger.info("Validation input_data loaded")
         dataset_spec.data_spec.data_column_names = tests_target
         tests_set = cls(data=tests_data, dataset_spec=dataset_spec)
-        logger.info('Test input_data loaded')
+        logger.info("Test input_data loaded")
 
         return train_set, valid_set, tests_set
 
     def get_error_scale(self, cat_index: Tensor) -> Tensor:
-        #if self.catergory_naive_mae == torch.empty(0):
+        # if self.catergory_naive_mae == torch.empty(0):
 
         return self.catergory_naive_mae[cat_index]
 
-    def __getitem__(self, item: int) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
-        cat_index = torch.searchsorted(self.cumulative_samples, item, right=True)  # finds index of first entry > item
-        item += self.cat_offset[cat_index]  # adjust index for category, rhp, and internal start index
+    def __getitem__(
+        self, item: int
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        cat_index = torch.searchsorted(
+            self.cumulative_samples, item, right=True
+        )  # finds index of first entry > item
+        item += self.cat_offset[
+            cat_index
+        ]  # adjust index for category, rhp, and internal start index
 
         historic_slice = slice(item, item + self.historic_window)
         forecast_slice = slice(item + self.historic_window, item + self.total_window)
-        logger.debug(f'{historic_slice=}, {forecast_slice=}')
+        logger.debug(f"{historic_slice=}, {forecast_slice=}")
 
         historic_data = self.normalized_data[cat_index, historic_slice].clone()
         reference = self.normalized_data[cat_index, forecast_slice].clone()
 
-        historic_rhp, rhp_forecast = self.rhp_data.get_rhp(cat_index, historic_slice, forecast_slice)
+        historic_rhp, rhp_forecast = self.rhp_data.get_rhp(
+            cat_index, historic_slice, forecast_slice
+        )
         historic_rhp = historic_rhp.clone()
         rhp_forecast = rhp_forecast.clone()
 
@@ -305,6 +387,14 @@ class ResidualDataset(Dataset):
         forecast_metadata = self.metadata[cat_index, forecast_slice].clone()
 
         # TODO: check if cat_index get correct device automatically
-        #cat_index = torch.tensor(cat_index, device=self.device)
+        # cat_index = torch.tensor(cat_index, device=self.device)
 
-        return historic_data, historic_rhp, historic_metadata, rhp_forecast, forecast_metadata, cat_index, reference
+        return (
+            historic_data,
+            historic_rhp,
+            historic_metadata,
+            rhp_forecast,
+            forecast_metadata,
+            cat_index,
+            reference,
+        )

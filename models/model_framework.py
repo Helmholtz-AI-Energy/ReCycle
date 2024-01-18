@@ -18,29 +18,34 @@ import cProfile, pstats, io
 
 # Logging
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class ModelFramework:
     """Wrapper class that saves and distributes all relevant features for the benchmark."""
-    def __init__(
-            self,
-            model_spec: ModelSpec,
-            dataset_spec: DatasetSpec,
-            # For repeated runs the already built datasets can be reused
-            premade_datasets: Optional[Tuple[ResidualDataset, ResidualDataset, ResidualDataset]] = None,
-):
 
+    def __init__(
+        self,
+        model_spec: ModelSpec,
+        dataset_spec: DatasetSpec,
+        # For repeated runs the already built datasets can be reused
+        premade_datasets: Optional[
+            Tuple[ResidualDataset, ResidualDataset, ResidualDataset]
+        ] = None,
+    ):
         self.model_spec = model_spec
         self.model_name = model_spec.model_name
 
         if premade_datasets is None:
-            assert type(dataset_spec) == ResidualDatasetSpec, 'ResidualDataset requires ResidualDatasetSpec'
+            assert (
+                type(dataset_spec) == ResidualDatasetSpec
+            ), "ResidualDataset requires ResidualDatasetSpec"
             self.datasets = dataset_spec.create_datasets()
             self.dataset_spec = dataset_spec
             self.dataset_name = dataset_spec.data_spec.file_name
         else:
-            logger.info('Using premade datasets')
+            logger.info("Using premade datasets")
             self.datasets = premade_datasets
             self.dataset_spec = self.datasets[0].dataset_spec
             self.dataset_name = self.datasets[0].dataset_spec.data_spec.file_name
@@ -50,24 +55,24 @@ class ModelFramework:
 
         # Initialize model
         model_class = get_model_class(model_spec.model_name)
-        logger.info(f'Using {model_spec.model_name} model')
+        logger.info(f"Using {model_spec.model_name} model")
         self.model = model_class(model_spec=model_spec)
         # This is unnecessary for properly coded models, but some do not manage to do this themselves
         self.model.to(model_spec.device)
 
     def mode(self, mode: str) -> None:
         """Sets model mode and flag for dataset selection used to select the dataset"""
-        if mode in ['train', 0]:
+        if mode in ["train", 0]:
             self.model.train()
             self._mode = 0
-        elif mode in ['valid', 1]:
+        elif mode in ["valid", 1]:
             self.model.eval()
             self._mode = 1
-        elif mode in ['test', 2]:
+        elif mode in ["test", 2]:
             self.model.eval()
             self._mode = 2
         else:
-            raise ValueError(f'Trying to set invalid mode {mode}')
+            raise ValueError(f"Trying to set invalid mode {mode}")
 
     def dataset(self) -> ResidualDataset:
         return self.datasets[self._mode]
@@ -83,15 +88,19 @@ class ModelFramework:
         optimizer = train_spec.optimizer(
             self.model.parameters(),
             lr=10**train_spec.learning_rate,
-            **train_spec.optimizer_args
+            **train_spec.optimizer_args,
         )
 
         # get datasets
         train_set = self.datasets[0]
         valid_set = self.datasets[1]
 
-        train_dataloader = DataLoader(train_set, batch_size=train_spec.batch_size, shuffle=True, drop_last=True)
-        valid_dataloader = DataLoader(valid_set, batch_size=train_spec.batch_size, shuffle=True)
+        train_dataloader = DataLoader(
+            train_set, batch_size=train_spec.batch_size, shuffle=True, drop_last=True
+        )
+        valid_dataloader = DataLoader(
+            valid_set, batch_size=train_spec.batch_size, shuffle=True
+        )
 
         train_loss = torch.zeros(train_spec.epochs, len(train_dataloader))
         valid_loss = torch.zeros(train_spec.epochs)
@@ -105,19 +114,21 @@ class ModelFramework:
 
         for n in range(train_spec.epochs):
             if n % 10 == 0:
-                logger.info(f'Starting epoch {n+1}')
+                logger.info(f"Starting epoch {n+1}")
 
             # Training phase
-            train_loss[n] = self.model.train_epoch(train_dataloader, criterion, optimizer)
+            train_loss[n] = self.model.train_epoch(
+                train_dataloader, criterion, optimizer
+            )
 
             # Validation phase
             valid_loss[n] = self.model.valid_epoch(valid_dataloader, criterion)
             if n % 10 == 0:
-                logger.info(f'Training loss: {train_loss[n,-1].item()}')
-                logger.info(f'Validation loss: {valid_loss[n]}')
+                logger.info(f"Training loss: {train_loss[n,-1].item()}")
+                logger.info(f"Validation loss: {valid_loss[n]}")
 
             if early_stopping(valid_loss[n], self.model):
-                logger.info(f'Early stopping after epoch {n+1}')
+                logger.info(f"Early stopping after epoch {n+1}")
                 break
 
         # reset to best model
@@ -127,15 +138,20 @@ class ModelFramework:
         if train_spec.profiling:
             pr.disable()
             s = io.StringIO()
-            sortby = 'tottime'  # SortKey.CUMULATIVE
+            sortby = "tottime"  # SortKey.CUMULATIVE
             ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
             ps.print_stats()
             print(s.getvalue())
 
         return train_loss.flatten(), valid_loss, best_loss
 
-    def predict(self, idx: int or None = None, dataset_name: str = 'test', denormalize: bool = True, raw: bool = False)\
-            -> (Tensor, Tensor, Tensor):
+    def predict(
+        self,
+        idx: int or None = None,
+        dataset_name: str = "test",
+        denormalize: bool = True,
+        raw: bool = False,
+    ) -> (Tensor, Tensor, Tensor):
         """Used to make sample forecasts from specified set, if raw=True residuals are returned, if used"""
         self.mode(dataset_name)
         dataset = self.dataset()
@@ -148,7 +164,9 @@ class ModelFramework:
             prediction = self.model.predict(*sample[:-1])
 
             if denormalize:
-                cat_data = sample[-2] # denormalization requires category if they are separately normalized
+                cat_data = sample[
+                    -2
+                ]  # denormalization requires category if they are separately normalized
                 prediction = dataset.norm.revert_normalization(prediction, cat_data)
 
             prediction = prediction.squeeze(dim=0).detach()
@@ -156,7 +174,7 @@ class ModelFramework:
         if denormalize:
             cat_data = sample[-2]
             if raw:
-            #    prediction = dataset.norm.revert_normalization(prediction, cat_data)
+                #    prediction = dataset.norm.revert_normalization(prediction, cat_data)
                 output_rhp = dataset.norm.revert_normalization(sample[3], cat_data)
             input_reference = dataset.norm.revert_normalization(sample[0], cat_data)
             output_reference = dataset.norm.revert_normalization(sample[-1], cat_data)
@@ -168,17 +186,23 @@ class ModelFramework:
         if raw:
             output_reference -= output_rhp
             if self.model.nr_of_quantiles is not None:
-                output_rhp = output_rhp.unsqueeze(-1).expand(*output_rhp.shape, self.model.nr_of_quantiles)
+                output_rhp = output_rhp.unsqueeze(-1).expand(
+                    *output_rhp.shape, self.model.nr_of_quantiles
+                )
             print(output_reference.shape, output_rhp.shape)
             prediction -= output_rhp
         return prediction, input_reference, output_reference
 
-    def test_forecast(self, batch_size: int = 128, calibration: bool = False) -> pd.DataFrame:
+    def test_forecast(
+        self, batch_size: int = 128, calibration: bool = False
+    ) -> pd.DataFrame:
         if calibration:
-            assert self.model.nr_of_quantiles is not None, 'Calibration counting requires model with quantiles'
+            assert (
+                self.model.nr_of_quantiles is not None
+            ), "Calibration counting requires model with quantiles"
             total_calibration = torch.empty(0)
 
-        self.mode('test')
+        self.mode("test")
         dataset = self.dataset()
         if batch_size > len(dataset):
             batch_size = len(dataset)
@@ -190,27 +214,42 @@ class ModelFramework:
                 cat_data = batch[-2]
                 prediction = self.model.predict(*batch[:-1])
                 prediction = dataset.norm.revert_normalization(prediction, cat_data)
-                output_reference = dataset.norm.revert_normalization(batch[-1], cat_data)
+                output_reference = dataset.norm.revert_normalization(
+                    batch[-1], cat_data
+                )
 
                 if self.model.nr_of_quantiles is not None:
                     if calibration:
                         # move quantile_dimension to front, then elementwise comparison on last two dimensions and collapse
-                        batch_calibration = (output_reference < prediction.movedim(-1, 0)).to(float).flatten(1).mean(-1)
-                        total_calibration = torch.concat([total_calibration, batch_calibration.unsqueeze(0)])
+                        batch_calibration = (
+                            (output_reference < prediction.movedim(-1, 0))
+                            .to(float)
+                            .flatten(1)
+                            .mean(-1)
+                        )
+                        total_calibration = torch.concat(
+                            [total_calibration, batch_calibration.unsqueeze(0)]
+                        )
 
                     if self.model_spec.assume_symmetric_quantiles:
                         prediction = prediction[..., 0]
                     else:
-                        prediction = prediction[..., prediction.shape[-1]//2]
+                        prediction = prediction[..., prediction.shape[-1] // 2]
                 batch_metrics = apply_error_metric(prediction, output_reference)
 
                 # get mase for inhomogeneous datasets
                 error_scale = dataset.get_error_scale(cat_data)
-                scaled_prediction = torch.stack(list(map(torch.div, prediction, error_scale)))
-                scaled_reference = torch.stack(list(map(torch.div, output_reference, error_scale)))
-                scaled_metrics = apply_error_metric(scaled_prediction, scaled_reference, ['mae', 'bias'])
-                batch_metrics['mase'] = scaled_metrics.mae
-                batch_metrics['scaled bias'] = scaled_metrics.bias
+                scaled_prediction = torch.stack(
+                    list(map(torch.div, prediction, error_scale))
+                )
+                scaled_reference = torch.stack(
+                    list(map(torch.div, output_reference, error_scale))
+                )
+                scaled_metrics = apply_error_metric(
+                    scaled_prediction, scaled_reference, ["mae", "bias"]
+                )
+                batch_metrics["mase"] = scaled_metrics.mae
+                batch_metrics["scaled bias"] = scaled_metrics.bias
 
                 results = pd.concat([results, batch_metrics])
 
@@ -219,9 +258,9 @@ class ModelFramework:
                 return results.mean().to_frame().T, final_calibration
 
         return results.mean().to_frame().T
-    
+
     def test_rhp(self, batch_size: int = 128) -> Tensor:
-        self.mode('test')
+        self.mode("test")
         dataset = self.dataset()
         if batch_size > len(dataset):
             batch_size = len(dataset)
@@ -232,15 +271,23 @@ class ModelFramework:
             for batch in loader:
                 cat_data = batch[-2]
                 prediction = dataset.norm.revert_normalization(batch[3], cat_data)
-                output_reference = dataset.norm.revert_normalization(batch[-1], cat_data)
+                output_reference = dataset.norm.revert_normalization(
+                    batch[-1], cat_data
+                )
                 batch_metrics = apply_error_metric(prediction, output_reference)
 
                 error_scale = dataset.get_error_scale(cat_data)
-                scaled_prediction = torch.stack(list(map(torch.div, prediction, error_scale)))
-                scaled_reference = torch.stack(list(map(torch.div, output_reference, error_scale)))
-                scaled_metrics = apply_error_metric(scaled_prediction, scaled_reference, ['mae', 'bias'])
-                batch_metrics['mase'] = scaled_metrics.mae
-                batch_metrics['scaled bias'] = scaled_metrics.bias
+                scaled_prediction = torch.stack(
+                    list(map(torch.div, prediction, error_scale))
+                )
+                scaled_reference = torch.stack(
+                    list(map(torch.div, output_reference, error_scale))
+                )
+                scaled_metrics = apply_error_metric(
+                    scaled_prediction, scaled_reference, ["mae", "bias"]
+                )
+                batch_metrics["mase"] = scaled_metrics.mae
+                batch_metrics["scaled bias"] = scaled_metrics.bias
 
                 results = pd.concat([results, batch_metrics])
 
@@ -260,6 +307,7 @@ class ModelFramework:
         run = cls(**hyperparameters)
         run.model.load_state_dict(state_dict)
         return run
+
 
 #    def dropout_test_forecast(self, sample_nr: Optional[int] = 50) -> (Tensor, Tensor, Tensor):
 #        self.mode('test')

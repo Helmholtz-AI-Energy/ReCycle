@@ -7,6 +7,7 @@ from typing import Optional, Callable, Iterable, Type
 
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,9 +16,11 @@ def map_to_tensor(function: Callable, obj: Iterable) -> Tensor:
 
 
 class Normalizer(ABC):
-    def __init__(self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15) -> None:
+    def __init__(
+        self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15
+    ) -> None:
         # unless category use is specified input_data with more than 1 dim is treated with categories
-        logger.debug(f'{use_categories=}, {data.shape=}')
+        logger.debug(f"{use_categories=}, {data.shape=}")
         self._use_categories = use_categories or (data.shape[0] != 1)
         self._eps = eps
         self.set_normalization(data)
@@ -36,7 +39,9 @@ class Normalizer(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def revert_normalization(self, data: Tensor, categories: Optional[Tensor] = None) -> Tensor:
+    def revert_normalization(
+        self, data: Tensor, categories: Optional[Tensor] = None
+    ) -> Tensor:
         raise NotImplementedError
 
     def __call__(self, data: Tensor, categories: Optional[Tensor] = None) -> Tensor:
@@ -47,7 +52,9 @@ class MinMax(Normalizer):
     _min: Tensor
     _max: Tensor
 
-    def __init__(self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15) -> None:
+    def __init__(
+        self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15
+    ) -> None:
         super(MinMax, self).__init__(data=data, use_categories=use_categories, eps=eps)
 
     def to(self, *args, **kwargs) -> None:
@@ -55,10 +62,10 @@ class MinMax(Normalizer):
         self._max = self._max.to(*args, **kwargs)
 
     def set_normalization(self, data: Tensor) -> None:
-        #if self._use_categories:
+        # if self._use_categories:
         #    self._min = map_to_tensor(torch.min, data)
         #    self._max = map_to_tensor(torch.max, data)
-        #else:
+        # else:
         #    self._min = data.min()
         #    self._max = data.max()
 
@@ -72,25 +79,33 @@ class MinMax(Normalizer):
             if categories is None:
                 categories = torch.arange(data.shape[0])
             else:
-                assert data.shape[0] == categories.shape[0], 'invalid category specification'
+                assert (
+                    data.shape[0] == categories.shape[0]
+                ), "invalid category specification"
 
             data_min = self._min[categories]
             data_max = self._max[categories]
 
-            output_data = ((data.transpose(0, -1) - data_min) / (data_max - data_min + self._eps)).transpose(0, -1)
+            output_data = (
+                (data.transpose(0, -1) - data_min) / (data_max - data_min + self._eps)
+            ).transpose(0, -1)
         else:
             output_data = (data - self._min) / (self._max - self._min + self._eps)
 
         return output_data
 
-    def revert_normalization(self, data: Tensor, categories: Optional[Tensor] = None) -> Tensor:
+    def revert_normalization(
+        self, data: Tensor, categories: Optional[Tensor] = None
+    ) -> Tensor:
         if self._use_categories:
-            assert categories is not None, 'category specification missing'
+            assert categories is not None, "category specification missing"
 
             data_min = self._min[categories]
             data_max = self._max[categories]
 
-            output_data = (data.transpose(0, -1) * (data_max - data_min) + data_min).transpose(0, -1)
+            output_data = (
+                data.transpose(0, -1) * (data_max - data_min) + data_min
+            ).transpose(0, -1)
         else:
             output_data = data * (self._max - self._min) + self._min
 
@@ -101,8 +116,12 @@ class ZeroMean(Normalizer):
     _mean: Tensor
     _sigma: Tensor
 
-    def __init__(self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15) -> None:
-        super(ZeroMean, self).__init__(data=data, use_categories=use_categories, eps=eps)
+    def __init__(
+        self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15
+    ) -> None:
+        super(ZeroMean, self).__init__(
+            data=data, use_categories=use_categories, eps=eps
+        )
 
     def to(self, *args, **kwargs) -> None:
         self._mean = self._mean.to(*args, **kwargs)
@@ -121,25 +140,33 @@ class ZeroMean(Normalizer):
             if categories is None:
                 categories = torch.arange(data.shape[0])
             else:
-                assert data.shape[0] == categories.shape[0], 'invalid category specification'
+                assert (
+                    data.shape[0] == categories.shape[0]
+                ), "invalid category specification"
 
             data_mean = self._mean[categories]
             data_std = self._sigma[categories]
 
-            output_data = ((data.transpose(0, -1) - data_mean) / (data_std + self._eps)).transpose(0, -1)
+            output_data = (
+                (data.transpose(0, -1) - data_mean) / (data_std + self._eps)
+            ).transpose(0, -1)
         else:
             output_data = (data - self._mean) / (self._sigma + self._eps)
 
         return output_data
 
-    def revert_normalization(self, data: Tensor, categories: Optional[Tensor] = None) -> Tensor:
+    def revert_normalization(
+        self, data: Tensor, categories: Optional[Tensor] = None
+    ) -> Tensor:
         if self._use_categories:
-            assert categories is not None, 'category specification missing'
+            assert categories is not None, "category specification missing"
 
             data_mean = self._mean[categories]
             data_std = self._sigma[categories]
 
-            output_data = (data.transpose(0, -1) * data_std + data_mean).transpose(0, -1)
+            output_data = (data.transpose(0, -1) * data_std + data_mean).transpose(
+                0, -1
+            )
         else:
             output_data = data * self._sigma + self._mean
 
@@ -149,7 +176,9 @@ class ZeroMean(Normalizer):
 class AbsMax(Normalizer):
     _max: Tensor
 
-    def __init__(self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15) -> None:
+    def __init__(
+        self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15
+    ) -> None:
         super(AbsMax, self).__init__(data=data, use_categories=use_categories, eps=eps)
 
     def to(self, *args, **kwargs) -> None:
@@ -166,7 +195,9 @@ class AbsMax(Normalizer):
             if categories is None:
                 categories = torch.arange(data.shape[0])
             else:
-                assert data.shape[0] == categories.shape[0], 'invalid category specification'
+                assert (
+                    data.shape[0] == categories.shape[0]
+                ), "invalid category specification"
 
             data_max = self._max[categories]
 
@@ -176,9 +207,11 @@ class AbsMax(Normalizer):
 
         return output_data
 
-    def revert_normalization(self, data: Tensor, categories: Optional[Tensor] = None) -> Tensor:
+    def revert_normalization(
+        self, data: Tensor, categories: Optional[Tensor] = None
+    ) -> Tensor:
         if self._use_categories:
-            assert categories is not None, 'category specification missing'
+            assert categories is not None, "category specification missing"
 
             data_max = self._max[categories]
 
@@ -190,8 +223,12 @@ class AbsMax(Normalizer):
 
 
 class NoNormalizer(Normalizer):
-    def __init__(self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15) -> None:
-        super(NoNormalizer, self).__init__(data=data, use_categories=use_categories, eps=eps)
+    def __init__(
+        self, data: Tensor, use_categories: Optional[bool] = None, eps: float = 1e-15
+    ) -> None:
+        super(NoNormalizer, self).__init__(
+            data=data, use_categories=use_categories, eps=eps
+        )
 
     def to(self, *args, **kwargs) -> None:
         pass
@@ -202,18 +239,20 @@ class NoNormalizer(Normalizer):
     def normalize(self, data: Tensor, categories: Optional[Tensor] = None) -> Tensor:
         return data
 
-    def revert_normalization(self, data: Tensor, categories: Optional[Tensor] = None) -> Tensor:
+    def revert_normalization(
+        self, data: Tensor, categories: Optional[Tensor] = None
+    ) -> Tensor:
         return data
 
 
 def select_normalizer(name: str) -> Type[Normalizer]:
-    if name == 'min_max':
+    if name == "min_max":
         return MinMax
-    elif name == 'abs_max':
+    elif name == "abs_max":
         return AbsMax
-    elif name == 'zero_mean':
+    elif name == "zero_mean":
         return ZeroMean
-    elif name == 'none':
+    elif name == "none":
         return NoNormalizer
     else:
         raise TypeError

@@ -22,11 +22,12 @@ class ActionSpec:
     :param bool hyper_optimization_interrupt: interrupts process after training and returns the validation loss for
         hyperparameter optimization, prevents plot_loss, save and test from taking effect
     """
+
     train: bool = True
     plot_loss: bool = True
 
     save: bool = True
-    save_path: Optional[str] = './saved_models/'
+    save_path: Optional[str] = "./saved_models/"
     load: bool = False
     load_path: Optional[str] = None
 
@@ -37,8 +38,12 @@ class ActionSpec:
 
     def check_validity(self) -> None:
         if self.save:
-            assert self.save_path is not None, 'No directory to save to provided'
+            assert self.save_path is not None, "No directory to save to provided"
         if self.load:
-            assert (self.save_path is not None) or (self.load_path is not None), 'No directory to load from provided'
+            assert (self.save_path is not None) or (
+                self.load_path is not None
+            ), "No directory to load from provided"
         if self.hyper_optimization_interrupt:
-            assert self.train, 'Returning validation loss for hyperparameter optimization requires train = True'
+            assert (
+                self.train
+            ), "Returning validation loss for hyperparameter optimization requires train = True"
