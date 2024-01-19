@@ -1,0 +1,22 @@
+[project]
+name = "ReCycle"
+version = "0.0.1"
+authors = [
+  { name="Arvid Weyrauch", email="arvid.weyrauch@kit.edu" },
+]
+description = "A package"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: BSD License",
+]
+
+[project.urls]
+Homepage = "https://github.com/Helmholtz-AI-Energy/ReCycle"
+Issues = "https://github.com/Helmholtz-AI-Energy/ReCycle/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
