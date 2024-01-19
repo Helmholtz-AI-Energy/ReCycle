@@ -4,7 +4,7 @@ from torch import nn
 
 from typing import Optional, Type, TypeVar, Union, List
 from torch import Tensor
-from data.embeddings import FullEmbedding, select_embedding
+from ..data.embeddings import FullEmbedding, select_embedding
 
 import logging
 

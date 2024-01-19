@@ -1,11 +1,11 @@
+from typing import Optional
 import torch
 from torch import nn
-
-from models.model import Model
-from specs.model_specs import MLPSpec
-
-from typing import Optional
 from torch import Tensor
+
+from .model import Model
+from ..specs.model_specs import MLPSpec
+
 
 import logging
 

@@ -1,14 +1,13 @@
+from typing import Optional
 import torch
 from torch import nn
-
-from data.embeddings import DataOnly
-from specs.model_specs import ModelSpec
-
-from typing import Optional
 from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
+
+from ..data.embeddings import DataOnly
+from ..specs.model_specs import ModelSpec
 
 
 class Model(nn.Module):
@@ -88,7 +87,7 @@ class Model(nn.Module):
     ) -> Tensor:
         # protection from label abuse, but allows use of methods like teacher forcing
         if not self.training:
-            assert reference is None, f"Evaluation cannot use labels for prediction"
+            assert reference is None, "Evaluation cannot use labels for prediction"
 
         # this allows for advanced metadata_column_names selection and modification by redefining _select_metadata in the subclass
         metadata = self._select_metadata(

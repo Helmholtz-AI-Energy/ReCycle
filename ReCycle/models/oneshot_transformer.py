@@ -1,11 +1,11 @@
+from typing import Optional
 import torch
+from torch import Tensor
 from torch import nn
 
-from models.model import Model
-from specs.model_specs import TransformerSpec
+from .model import Model
+from ..specs.model_specs import TransformerSpec
 
-from typing import Optional
-from torch import Tensor
 
 import logging
 

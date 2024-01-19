@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 import torch
 from os import path
 
-from utils.tools import selective_flatten
+from .tools import selective_flatten
 
 from torch import Tensor
 from typing import Optional, List

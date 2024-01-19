@@ -1,20 +1,23 @@
+from random import randrange
+from typing import Optional, Tuple
+
 import pandas as pd
 import torch
+from torch import Tensor
 from torch.utils.data import DataLoader
-from utils.error_metrics import apply_error_metric
-from random import randrange
 
-from utils.tools import EarlyStopping
+from ..utils.error_metrics import apply_error_metric
+from ..utils.tools import EarlyStopping
 from .model_dictionary import get_model_class
 
-from typing import Optional, Tuple
-from torch import Tensor
-from data import ResidualDataset
-from specs import ModelSpec, DatasetSpec, TrainSpec
-from specs.dataset_specs import ResidualDatasetSpec
+from ..data.dataset import ResidualDataset
+from ..specs import ModelSpec, DatasetSpec, TrainSpec
+from ..specs.dataset_specs import ResidualDatasetSpec
 
 # Profiling
-import cProfile, pstats, io
+import cProfile
+import pstats
+import io
 
 # Logging
 import logging
@@ -38,8 +41,8 @@ class ModelFramework:
         self.model_name = model_spec.model_name
 
         if premade_datasets is None:
-            assert (
-                type(dataset_spec) == ResidualDatasetSpec
+            assert isinstance(
+                dataset_spec, ResidualDatasetSpec
             ), "ResidualDataset requires ResidualDatasetSpec"
             self.datasets = dataset_spec.create_datasets()
             self.dataset_spec = dataset_spec

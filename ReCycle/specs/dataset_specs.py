@@ -1,9 +1,10 @@
-from dataclasses import dataclass
+from typing import List, Optional, Type, TypeVar, Union, Tuple
 import torch
 
-from typing import List, Optional, Type, TypeVar, Union, Tuple
-from data.normalizer import Normalizer, MinMax, AbsMax
-from data.rhp_datasets import (
+from dataclasses import dataclass
+from ..data.normalizer import Normalizer, MinMax
+# from ..data.dataset import TimeSeriesDataset
+from ..data.rhp_datasets import (
     LooseTypeRHPDataset,
     LooseTypeLastRHPDataset,
     PersistenceDataset,
@@ -62,10 +63,15 @@ class DataSpec:
     def full_file_path(
         self, file_extension: str = ".csv"
     ) -> Union[str, Tuple[str, str, str]]:
-        if type(self.file_name) == str:
+        # if type(self.file_name) == str:
+        if isinstance(self.file_name, str):
             return self.root_path + self.file_name + file_extension
-        elif type(self.file_name) == Tuple[str, str, str]:
-            return tuple([self.root_path + f + file_extension for f in self.file_name])
+        # elif type(self.file_name) == Tuple[str, str, str]:
+        elif isinstance(self.file_name, Tuple):
+            assert len(self.file_name) == 3
+            return tuple(
+                [self.root_path + str(f) + file_extension for f in self.file_name]
+            )
         else:
             raise TypeError("Invalid file_name specification")
 
@@ -207,7 +213,7 @@ informer_etth1 = DataSpec(
     country_code="cn",
     data_column_names=["OT"],
     time_column_name="date",
-    ylabel="Temperature [$^\circ$C]",
+    ylabel=r"Temperature [$^\circ$C]",
 )
 
 informer_etth2 = DataSpec(
@@ -215,7 +221,7 @@ informer_etth2 = DataSpec(
     country_code="cn",
     data_column_names=["OT"],
     time_column_name="date",
-    ylabel="Temperature [$^\circ$C]",
+    ylabel=r"Temperature [$^\circ$C]",
 )
 
 minigrid = DataSpec(

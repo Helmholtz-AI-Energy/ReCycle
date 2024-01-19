@@ -1,19 +1,19 @@
 import os
 from random import randrange
+from typing import Optional, Tuple
 
 import torch
 
-from models import ModelFramework
-from utils.visualisation import (
+from .models import ModelFramework
+from .utils.visualisation import (
     plot_losses,
     plot_sample,
     plot_quantiles,
     plot_calibration,
 )
 
-from typing import Optional, Tuple
-from specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
-from data import ResidualDataset
+from .specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
+from .data.dataset import ResidualDataset
 
 # Logging
 import logging
@@ -116,7 +116,7 @@ def perform_evaluation(
     if action_spec.plot_prediction:
         xlabel = dataset_spec.data_spec.xlabel
         ylabel = dataset_spec.data_spec.ylabel
-        res_label = "Residual " + ylabel
+        # res_label = "Residual " + ylabel
 
         if model_spec.quantiles is not None:
             # plot quantiles

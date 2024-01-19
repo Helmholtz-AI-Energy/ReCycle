@@ -5,14 +5,13 @@ from abc import ABC, abstractmethod
 from operator import itemgetter
 from torch.nn.functional import one_hot, l1_loss
 
-from .normalizer import Normalizer, MinMax, AbsMax
+# from .normalizer import Normalizer, MinMax, AbsMax
 from .data_cleaner import clean_dataframe
-from .rhp_datasets import LooseTypeLastRHPDataset
-from specs.dataset_specs import ResidualDatasetSpec, DatasetSpec
+from ..specs.dataset_specs import ResidualDatasetSpec, DatasetSpec
 
 from torch import Tensor
 from torch.utils.data import Dataset
-from typing import List, Type, Optional, Dict, Tuple, Union, TypeVar
+from typing import List, Optional, Tuple, TypeVar
 from pandas import DataFrame
 from numpy import float32
 
