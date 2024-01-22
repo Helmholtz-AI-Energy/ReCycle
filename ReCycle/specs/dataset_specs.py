@@ -3,6 +3,7 @@ import torch
 
 from dataclasses import dataclass
 from ..data.normalizer import Normalizer, MinMax
+
 # from ..data.dataset import TimeSeriesDataset
 from ..data.rhp_datasets import (
     LooseTypeRHPDataset,
@@ -140,7 +141,7 @@ class DatasetSpec:
         self.check_validity()
 
         if dataset_class is None:
-            from data import ResidualDataset
+            from ..data.dataset import ResidualDataset
 
             dataset_class = ResidualDataset
 
