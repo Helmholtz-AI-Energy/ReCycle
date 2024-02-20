@@ -16,7 +16,7 @@ def selective_flatten(tensor: Tensor, idx: int = 0) -> Tensor:
     elif dimension == 3:
         return torch.flatten(tensor[idx])
     elif dimension > 3:
-        sys.exit('Input tensor has too many dimensions')
+        sys.exit("Input tensor has too many dimensions")
 
 
 def round_to_significant(x: float, significant_figures: int = 3) -> float:
@@ -35,7 +35,7 @@ def data_only(d_in):
 
 
 def correlation_coefficient(x: Tensor, y: Tensor) -> Tensor:
-    assert x.shape == y.shape, f'input shapes {x.shape=} and {y.shape=} do not match'
+    assert x.shape == y.shape, f"input shapes {x.shape=} and {y.shape=} do not match"
 
     res_x = x - torch.mean(x, dim=-1, keepdim=True)
     res_y = y - torch.mean(y, dim=-1, keepdim=True)
