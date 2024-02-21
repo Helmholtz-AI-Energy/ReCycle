@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from typing import Optional, Type, Tuple
+from typing import Optional, Type
 from torch.nn.modules.loss import _Loss, L1Loss
 from torch.optim import Optimizer, Adam
 

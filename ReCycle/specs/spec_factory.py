@@ -205,16 +205,11 @@ def spec_factory(
     )
 
     # set up ActionSpec
-    load_path = load_path or save_path
     action_spec = ActionSpec(
         train=train,
-        plot_loss=plot_loss,
-        save=save,
-        save_path=save_path,
-        load=load,
-        load_path=load_path,
         test=test,
-        plot_prediction=plot_prediction,
+        save_path=save_path,
+        load_path=load_path,
         hyper_optimization_interrupt=hyper_optimization_interrupt,
     )
 

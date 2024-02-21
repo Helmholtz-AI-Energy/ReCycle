@@ -1,16 +1,12 @@
 import argparse
-
-from .specs import spec_factory
-from .perform_evaluation import perform_evaluation
-
-# Logging
 import logging
 
+from .utils import run
+from .specs import spec_factory
+
+
 logger = logging.getLogger(__name__)
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s:%(message)s")
-
-
 parser = argparse.ArgumentParser(description="Load forecasting evaluation framework")
 
 # quantiles = None
@@ -21,22 +17,22 @@ parser = argparse.ArgumentParser(description="Load forecasting evaluation framew
 # if assume_symmetric_quantiles:
 #     quantiles = quantiles // 2 + 1
 # TODO make sure number of quantiles is set correctly
+# TODO enable load specs from config file
 
-train_mode_override = True
-if train_mode_override:
-    train = True
-    load = False
-    save = True
-else:
-    train = False
-    load = True
-    save = False
+# actions basic setup
+parser.add_argument(
+    "--train", action="store_true", default=False, help="train the model"
+)
+parser.add_argument(
+    "--test",
+    action="store_true",
+    default=True,
+    help="evaluate error metrics on test set",
+)
 
 parser.add_argument(
     "-m", "--model_name", default="Transformer", help="specifies model to use"
 )
-
-# General arguments
 parser.add_argument(
     "--historic_window", default=21, type=int, help="number of input time steps"
 )
@@ -49,8 +45,6 @@ parser.add_argument(
     type=int,
     help="number of features per input time step",
 )
-
-# Model arguments
 parser.add_argument(
     "--meta_features",
     default=9,
@@ -75,6 +69,7 @@ parser.add_argument(
     type=bool,
     help="whether to make residual forecasts",
 )
+# TODO pass quantiles as comma separated list
 parser.add_argument(
     "--custom_quantiles",
     default=False,
@@ -198,23 +193,16 @@ parser.add_argument(
 )
 # TODO: add loss and optimizer specification specification
 
-# Training actions
-parser.add_argument(
-    "--train", action="store_true", default=train, help="train the model"
-)
-parser.add_argument(
-    "--plot_loss",
-    action="store_true",
-    default=True,
-    help="plot loss after training",
-)
+
+# parser.add_argument(
+#     "--plot_loss",
+#     action="store_true",
+#     default=True,
+#     help="plot loss after training",
+# )
 # Save and load
-parser.add_argument("--save", action="store_true", default=save, help="save model")
 parser.add_argument(
     "--save_path", default="./saved_models/", help="path to store model if saving"
-)
-parser.add_argument(
-    "--load", action="store_true", default=load, help="load model from file"
 )
 parser.add_argument(
     "--load_path",
@@ -222,19 +210,12 @@ parser.add_argument(
     help="path to load model from, if None same as save_path",
 )
 
-# Processing steps
-parser.add_argument(
-    "--test",
-    action="store_true",
-    default=True,
-    help="evaluate error metrics on test set",
-)
-parser.add_argument(
-    "--plot_prediction",
-    action="store_true",
-    default=False,
-    help="plot some example predictions",
-)
+# parser.add_argument(
+#     "--plot_prediction",
+#     action="store_true",
+#     default=False,
+#     help="plot some example predictions",
+# )
 
 # TODO: enable parsing from string for: normalizer, residual_normalizer, rhp_dataset, loss and optimizer
 
@@ -245,9 +226,10 @@ if parsed["custom_quantiles"]:
 else:
     parsed["custom_quantiles"] = None
 
+
 model_spec, dataset_spec, train_spec, action_spec = spec_factory(**parsed)
 
-perform_evaluation(
+run.run_action(
     model_spec=model_spec,
     dataset_spec=dataset_spec,
     train_spec=train_spec,
