@@ -1,19 +1,22 @@
 import os
-from random import randrange
+
+# from random import randrange
 from typing import Optional, Tuple
 
 import torch
 
-from .models import ModelFramework
-from .utils.visualisation import (
-    plot_losses,
-    plot_sample,
-    plot_quantiles,
-    plot_calibration,
-)
+from ..models import ModelFramework
 
-from .specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
-from .data.dataset import ResidualDataset
+# TODO output visualization to files in the log dir
+# from .visualisation import (
+#     plot_losses,
+#     plot_sample,
+#     plot_quantiles,
+#     plot_calibration,
+# )
+
+from ..specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
+from ..data.dataset import ResidualDataset
 
 # Logging
 import logging
@@ -21,7 +24,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def perform_evaluation(
+def run_action(
     model_spec: ModelSpec,
     dataset_spec: DatasetSpec,
     train_spec: TrainSpec,
@@ -33,7 +36,15 @@ def perform_evaluation(
 ) -> Optional[Tuple[float, Tuple[ResidualDataset, ResidualDataset, ResidualDataset]]]:
     action_spec.check_validity()
 
-    if action_spec.load:
+    if not (
+        action_spec.train or action_spec.test or action_spec.infer or action_spec.hpo
+    ):
+        print("No action to perform, set train, test, infer, or hpo")
+        return
+
+    model_spec.check_validity()
+    dataset_spec.check_validity()
+    if action_spec.load_path is not None:
         load_path = action_spec.load_path or action_spec.save_path
         load_file = (
             load_path
@@ -42,21 +53,17 @@ def perform_evaluation(
         )
 
         model_spec, dataset_spec, old_train_spec, state_dict = torch.load(load_file)
+        # TODO log difference between old and new train spec
         logger.info(
             f"Loading from {load_file}:\n {model_spec=}\n {dataset_spec=}\n {old_train_spec=}"
         )
 
-        model_spec.check_validity()
-        dataset_spec.check_validity()
-
+        # TODO don't call thia a run, a wrapper around the model is probably also not that useful
         run = ModelFramework(
             model_spec, dataset_spec, premade_datasets=premade_datasets
         )
         run.model.load_state_dict(state_dict=state_dict)
     else:
-        model_spec.check_validity()
-        dataset_spec.check_validity()
-
         run = ModelFramework(
             model_spec, dataset_spec, premade_datasets=premade_datasets
         )
@@ -67,23 +74,23 @@ def perform_evaluation(
         if action_spec.hyper_optimization_interrupt:
             return best_loss, run.datasets
 
-        if action_spec.save:
-            # set upt save location
-            os.makedirs(action_spec.save_path, exist_ok=True)
-            save_file = (
-                action_spec.save_path
-                + "_".join([model_spec.model_name, dataset_spec.data_spec.file_name])
-                + ".pt"
-            )
+        # TODO generate model file names, such that models are not accidentally overwritten
+        # set upt save location
+        os.makedirs(action_spec.save_path, exist_ok=True)
+        save_file = (
+            action_spec.save_path
+            + "_".join([model_spec.model_name, dataset_spec.data_spec.file_name])
+            + ".pt"
+        )
 
-            # get model state dictionary and save
-            state_dict = run.model.state_dict()
-            torch.save([model_spec, dataset_spec, train_spec, state_dict], f=save_file)
-            logger.info("Model saved")
+        # get model state dictionary and save
+        state_dict = run.model.state_dict()
+        torch.save([model_spec, dataset_spec, train_spec, state_dict], f=save_file)
+        logger.info("Model saved")
 
-        if action_spec.plot_loss:
-            logger.info("Plotting loss")
-            plot_losses(train_loss, valid_loss)
+        # if action_spec.plot_loss:
+        #     logger.info("Plotting loss")
+        #     plot_losses(train_loss, valid_loss)
 
     if action_spec.test:
         logger.info("Evaluating test set")
@@ -103,8 +110,8 @@ def perform_evaluation(
                 batch_size=test_batchsize, calibration=True
             )
             print(calibration)
-            quantiles = train_spec.loss.get_quantile_values()
-            plot_calibration(calibration, quantiles)
+            # quantiles = train_spec.loss.get_quantile_values()
+            # plot_calibration(calibration, quantiles)
 
         print(result_summary)
 
@@ -113,39 +120,39 @@ def perform_evaluation(
         rhp_summary = run.test_rhp(batch_size=test_batchsize)
         print(rhp_summary)
 
-    if action_spec.plot_prediction:
-        xlabel = dataset_spec.data_spec.xlabel
-        ylabel = dataset_spec.data_spec.ylabel
-        # res_label = "Residual " + ylabel
+    # if action_spec.plot_prediction:
+    #     xlabel = dataset_spec.data_spec.xlabel
+    #     ylabel = dataset_spec.data_spec.ylabel
+    #     # res_label = "Residual " + ylabel
 
-        if model_spec.quantiles is not None:
-            # plot quantiles
-            idx = randrange(len(run.datasets[2]))
-            print(f"Sample nr: {idx}")
+    #     if model_spec.quantiles is not None:
+    #         # plot quantiles
+    #         idx = randrange(len(run.datasets[2]))
+    #         print(f"Sample nr: {idx}")
 
-            prediction, input_data, reference = run.predict(
-                dataset_name="test", idx=idx
-            )
-            plot_quantiles(prediction, reference)
+    #         prediction, input_data, reference = run.predict(
+    #             dataset_name="test", idx=idx
+    #         )
+    #         plot_quantiles(prediction, reference)
 
-        else:
-            logger.info("plotting predictions")
-            for n in range(4):
-                idx = randrange(len(run.datasets[2]))
-                print(f"Sample nr: {idx}")
+    #     else:
+    #         logger.info("plotting predictions")
+    #         for n in range(4):
+    #             idx = randrange(len(run.datasets[2]))
+    #             print(f"Sample nr: {idx}")
 
-                prediction, input_data, reference = run.predict(
-                    dataset_name="test", idx=idx
-                )
-                plot_sample(
-                    historic_data=input_data,
-                    forecast_data=prediction,
-                    forecast_reference=reference,
-                    xlabel=xlabel,
-                    ylabel=ylabel,
-                )
-                # time_resolved_error(prediction, reference)
+    #             prediction, input_data, reference = run.predict(
+    #                 dataset_name="test", idx=idx
+    #             )
+    #             plot_sample(
+    #                 historic_data=input_data,
+    #                 forecast_data=prediction,
+    #                 forecast_reference=reference,
+    #                 xlabel=xlabel,
+    #                 ylabel=ylabel,
+    #             )
+    #             # time_resolved_error(prediction, reference)
 
-                # prediction, input_data, reference = run.predict(dataset_name='test', idx=idx, raw=True)
-                # plot_prediction(prediction, input_data, reference, plot_input=False, xlabel=xlabel, ylabel=res_label,
-                #                 is_residual_plot=True)
+    #             # prediction, input_data, reference = run.predict(dataset_name='test', idx=idx, raw=True)
+    #             # plot_prediction(prediction, input_data, reference, plot_input=False, xlabel=xlabel, ylabel=res_label,
+    #             #                 is_residual_plot=True)
