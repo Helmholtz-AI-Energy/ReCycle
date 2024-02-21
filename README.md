@@ -1,4 +1,4 @@
-# ReCycle - Residual Cyclic Time-Series Forecating
+# ReCycle - Residual Cyclic Time-Series Forecasting
 
 Welcome to the RAI-ReCycle repository. This is a stub an will be expanded in the future
 
@@ -24,4 +24,4 @@ Naming conventions can be found in `data/datset_bib.py`
 
 ## Planned features
  - [ ] Dataframe interface
- - [ ] Packaging
+ - [ ] Metadata flexibility
