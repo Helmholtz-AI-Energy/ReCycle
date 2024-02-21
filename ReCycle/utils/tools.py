@@ -28,7 +28,7 @@ def round_to_significant(x: float, significant_figures: int = 3) -> float:
 
 
 def data_only(d_in):
-    if type(d_in) == list or type(d_in) == tuple:
+    if isinstance(d_in, list) or isinstance(d_in, tuple):
         return d_in[0]
     else:
         return d_in
