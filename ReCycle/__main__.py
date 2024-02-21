@@ -13,17 +13,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s:%(mess
 
 parser = argparse.ArgumentParser(description="Load forecasting evaluation framework")
 
-default_model = "Transformer"
-default_dataset = "entsoe_de"
-
-custom_quantiles = False
-quantiles = None
-assume_symmetric_quantiles = False
-invert = False
+# quantiles = None
+# assume_symmetric_quantiles = False
+# invert = False
 
 # with symmetric quantiles only half the quantiles and the median need to be predicted
-if assume_symmetric_quantiles:
-    quantiles = quantiles // 2 + 1
+# if assume_symmetric_quantiles:
+#     quantiles = quantiles // 2 + 1
+# TODO make sure number of quantiles is set correctly
 
 train_mode_override = True
 if train_mode_override:
@@ -36,7 +33,7 @@ else:
     save = False
 
 parser.add_argument(
-    "-m", "--model_name", default=default_model, help="specifies model to use"
+    "-m", "--model_name", default="Transformer", help="specifies model to use"
 )
 
 # General arguments
@@ -80,26 +77,26 @@ parser.add_argument(
 )
 parser.add_argument(
     "--custom_quantiles",
-    default=custom_quantiles,
+    default=False,
     type=bool,
     help="whether to use hardcoded quantiles",
 )
 parser.add_argument(
     "--quantiles",
-    default=quantiles,
+    default=None,
     type=int,
     help="number of quantiles for autogeneration",
 )
 parser.add_argument(
     "--assume_symmetric_quantiles",
     action="store_true",
-    default=assume_symmetric_quantiles,
+    default=False,
     help="whether quantiles are build symmetrically from the center or traditionally",
 )
 parser.add_argument(
     "--invert",
     action="store_true",
-    default=invert,
+    default=False,
     help="makes symmetric quantiles be lower quantiles instead of upper",
 )
 # Transformer specific arguments
@@ -158,7 +155,7 @@ parser.add_argument(
 # Data specifications
 parser.add_argument(
     "--dataset_name",
-    default=default_dataset,
+    default="entsoe_de",
     help="fills in following specifications for known residuals, use None otherwise",
 )
 # These are for custom datasets probably easier to create a new spec in specs.dataset_specs though
