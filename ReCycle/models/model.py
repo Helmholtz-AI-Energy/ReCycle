@@ -1,4 +1,6 @@
 from typing import Optional
+from pathlib import Path
+
 import torch
 from torch import nn
 from torch import Tensor
@@ -10,7 +12,7 @@ from ..data.embeddings import DataOnly
 from ..specs.model_specs import ModelSpec
 
 
-class Model(nn.Module):
+class ForecastModel(nn.Module):
     """
     Base class for all models
 
@@ -19,7 +21,7 @@ class Model(nn.Module):
     """
 
     def __init__(self, model_spec: ModelSpec) -> None:
-        super(Model, self).__init__()
+        super(ForecastModel, self).__init__()
         model_spec.check_validity()
 
         self.model_name = model_spec.model_name
@@ -74,6 +76,7 @@ class Model(nn.Module):
     ) -> list:
         return [input_metadata, decoder_metadata, forecast_rhp]
 
+    # TODO interface, dataframes?
     def predict(
         self,
         input_sequence: Tensor,
@@ -157,3 +160,19 @@ class Model(nn.Module):
                 total_loss += loss.clone()
 
         return total_loss / len(valid_dataloader)
+
+    def fit(self):
+        # TODO
+        return
+
+    def reset(self):
+        # TODO
+        return
+
+    def save(self, path: Path):
+        # TODO
+        return
+
+    def load(self, path: Path):
+        # TODO
+        return

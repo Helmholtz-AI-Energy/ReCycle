@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch import Tensor
 
-from .model import Model
+from .model import ForecastModel
 from ..specs.model_specs import MLPSpec
 
 
@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class MultiLayerPerceptron(Model):
+class MultiLayerPerceptron(ForecastModel):
     def __init__(self, model_spec: MLPSpec) -> None:
         super(MultiLayerPerceptron, self).__init__(model_spec=model_spec)
         self.input_features = self.historic_window * self.embedding.output_features

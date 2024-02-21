@@ -3,7 +3,7 @@ import torch
 from torch import Tensor
 from torch import nn
 
-from .model import Model
+from .model import ForecastModel
 from ..specs.model_specs import TransformerSpec
 
 
@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class OneshotTransformer(Model):
+class OneshotTransformer(ForecastModel):
     def __init__(self, model_spec: TransformerSpec) -> None:
         super(OneshotTransformer, self).__init__(model_spec=model_spec)
         self.d_hid = model_spec.d_hidden or model_spec.dim_feedforward
