@@ -2,6 +2,8 @@ from . import data
 from . import models
 from . import specs
 from . import utils
+from . import run
+
 # from . import propulate_interface
 
 import logging
@@ -13,5 +15,6 @@ __all__ = [
     "models",
     "utils",
     "specs",
+    "run",
     # "propulate_interface",
 ]

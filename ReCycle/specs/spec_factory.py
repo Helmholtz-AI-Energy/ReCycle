@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 __all__ = {"spec_factory"}
 
 
-def spec_factory(
+def configure_run(
     model_name: str,
     historic_window: int,
     forecast_window: int,
@@ -77,12 +77,10 @@ def spec_factory(
     device: torch.device = None,
     train: bool = True,
     plot_loss: bool = True,
-    save: bool = True,
     save_path: str = "./saved_models/",
-    load: bool = False,
     load_path: Optional[str] = None,
     test: bool = True,
-    plot_prediction: bool = True,
+    # plot_prediction: bool = True,
     hyper_optimization_interrupt: bool = False,
     **kwargs,
 ) -> (ModelSpec, DatasetSpec, TrainSpec, ActionSpec):

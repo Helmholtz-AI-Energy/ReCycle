@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 
 import torch
 
-from ..models import ModelFramework
+from .models import ModelFramework
 
 # TODO output visualization to files in the log dir
 # from .visualisation import (
@@ -15,8 +15,8 @@ from ..models import ModelFramework
 #     plot_calibration,
 # )
 
-from ..specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
-from ..data.dataset import ResidualDataset
+from .specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
+from .data.dataset import ResidualDataset
 
 # Logging
 import logging
