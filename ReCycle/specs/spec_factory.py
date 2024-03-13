@@ -4,8 +4,8 @@ from torch import Tensor
 from torch.nn.modules.loss import _Loss, L1Loss
 from torch.optim import Optimizer, Adam
 
-from .model_specs import get_model_spec, ModelSpec
-from .dataset_specs import get_data_spec, DataSpec, DatasetSpec, ResidualDatasetSpec
+from .model_specs import ModelSpec, model_spec_dict
+from .dataset_specs import DataSpec, DatasetSpec, ResidualDatasetSpec, specs_dict
 from .train_specs import TrainSpec
 from .action_specs import ActionSpec
 
@@ -23,10 +23,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-__all__ = {"spec_factory"}
-
-
 def configure_run(
+    action: str,
     model_name: str,
     historic_window: int,
     forecast_window: int,
@@ -42,7 +40,6 @@ def configure_run(
     quantiles: Optional[int] = None,
     assume_symmetric_quantiles: bool = False,
     invert: bool = False,
-    model_args: Optional[dict] = None,
     normalizer: Type[Normalizer] = MinMax,
     train_share: float = 0.6,
     tests_share: float = 0.2,
@@ -63,8 +60,6 @@ def configure_run(
     downsample_rate: Optional[int] = None,
     split_by_category: bool = False,
     remove_flatline: bool = False,
-    xlabel: Optional[str] = "Time [d]",
-    ylabel: Optional[str] = "Consumption",
     root_path: str = "./datasets/",
     learning_rate: float = -3,
     batch_size: int = 32,
@@ -74,33 +69,21 @@ def configure_run(
     optimizer: Type[Optimizer] = Adam,
     optimizer_args: Optional[dict] = None,
     profiling: bool = False,
-    device: torch.device = None,
-    train: bool = True,
-    plot_loss: bool = True,
     save_path: str = "./saved_models/",
     load_path: Optional[str] = None,
-    test: bool = True,
-    # plot_prediction: bool = True,
-    hyper_optimization_interrupt: bool = False,
-    **kwargs,
+    input_path: Optional[str] = None,
+    # **kwargs,
 ) -> (ModelSpec, DatasetSpec, TrainSpec, ActionSpec):
-    if model_args is None:
-        model_args = kwargs
-    else:
-        for argument in kwargs:
-            logger.warning(f"Unused argument {argument} = {kwargs[argument]}")
-
     # set up ModelSpec
-    model_args = model_args or {}
 
     # autodetect device
-    device = device or _get_device()
+    device = _get_device()
     logger.info(f"Using {device}")
 
-    model_spec_class = get_model_spec(model_name)
+    model_spec_class = model_spec_dict[model_name]
     if custom_quantiles is not None:
         quantiles = len(custom_quantiles)
-    if type(embedding) is str:
+    if isinstance(embedding, str):
         embedding_args = embedding_args or {}
         model_spec = model_spec_class.from_embedding_name(
             model_name=model_name,
@@ -141,11 +124,11 @@ def configure_run(
 
     # set up DatasetSpec
     if dataset_name is not None:
-        data_spec = get_data_spec(dataset_name)
+        data_spec = specs_dict[dataset_name]
     else:
-        assert file_name is not None and time_column_name is not None, (
-            "Either dataset_name or file_name and" "time_column_name must be specified"
-        )
+        assert (
+            file_name is not None and time_column_name is not None
+        ), "Either dataset_name or file_name and time_column_name must be specified"
         data_spec = DataSpec(
             file_name=file_name,
             time_column_name=time_column_name,
@@ -156,8 +139,6 @@ def configure_run(
             downsample_rate=downsample_rate,
             split_by_category=split_by_category,
             remove_flatline=remove_flatline,
-            xlabel=xlabel,
-            ylabel=ylabel,
             root_path=root_path,
         )
 
@@ -204,11 +185,7 @@ def configure_run(
 
     # set up ActionSpec
     action_spec = ActionSpec(
-        train=train,
-        test=test,
-        save_path=save_path,
-        load_path=load_path,
-        hyper_optimization_interrupt=hyper_optimization_interrupt,
+        action=action, save_path=save_path, load_path=load_path, input_path=input_path
     )
 
     return model_spec, dataset_spec, train_spec, action_spec

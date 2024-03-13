@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
-from typing import Optional, Type, TypeVar, Union, List
+from typing import Optional, TypeVar, Union, List
 from torch import Tensor
 from ..data.embeddings import FullEmbedding, select_embedding
 
@@ -145,11 +145,3 @@ model_spec_dict = dict(
     Transformer=TransformerSpec,
     MLP=MLPSpec,
 )
-
-
-def get_model_spec(name: str) -> Type[ModelSpec]:
-    if name in model_spec_dict:
-        return model_spec_dict[name]
-    else:
-        logger.warning("No matching model spec found, using default spec.")
-        return ModelSpec

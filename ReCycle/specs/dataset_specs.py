@@ -4,7 +4,6 @@ import torch
 from dataclasses import dataclass
 from ..data.normalizer import Normalizer, MinMax
 
-# from ..data.dataset import TimeSeriesDataset
 from ..data.rhp_datasets import (
     LooseTypeRHPDataset,
     LooseTypeLastRHPDataset,
@@ -14,7 +13,6 @@ from ..data.rhp_datasets import (
 
 __all__ = [
     "DataSpec",
-    "get_data_spec",
     "DatasetSpec",
     "ResidualDatasetSpec",
 ]
@@ -43,8 +41,6 @@ class DataSpec:
         at a certain time, only use if data_column_names has sufficiently many entries
     :param bool remove_flatline: if True check the beginning of the series for consecutive 0 values and only start
         indexing once they stop
-    :param Optional[str] xlabel: label of the time axis for plotting
-    :param Optional[str] ylabel: label of the value axis for plotting
     :param str root_path: path where dataset file is stored, should generally be "./datasets/", see README
     """
 
@@ -57,8 +53,6 @@ class DataSpec:
     downsample_rate: Optional[int] = None
     split_by_category: bool = False
     remove_flatline: bool = False
-    xlabel: Optional[str] = "Time [d]"
-    ylabel: Optional[str] = "Consumption"
     root_path: str = "./datasets/"
 
     def full_file_path(
@@ -110,7 +104,8 @@ class DatasetSpec:
     @classmethod
     def from_spec_name(cls: SPEC, *args, data_spec_name: str, **kwargs) -> SPEC:
         """Accepts the same signature as baseclass, but translates data_spec_name to a DataSpec"""
-        data_spec = get_data_spec(data_spec_name)
+        # data_spec = get_data_spec(data_spec_name)
+        data_spec = specs_dict[data_spec_name]
         return cls(*args, data_spec=data_spec, **kwargs)
 
     def check_validity(self) -> None:
@@ -134,18 +129,17 @@ class DatasetSpec:
             assert 0 <= self.reduce, f"{self.reduce=} should be greater or equal 0"
             assert 1 >= self.reduce, f"{self.reduce=} should be smaller or equal 1"
 
-    # TODO: there should be some mechanism to use different dataset classes
-    def create_datasets(
-        self, dataset_class: Optional[Type["TimeSeriesDataset"]] = None
-    ) -> Tuple["TimeSeriesDataset", "TimeSeriesDataset", "TimeSeriesDataset"]:
-        self.check_validity()
+    # def create_datasets(
+    #     self, dataset_class: Optional[Type["TimeSeriesDataset"]] = None
+    # ) -> Tuple["TimeSeriesDataset", "TimeSeriesDataset", "TimeSeriesDataset"]:
+    #     self.check_validity()
 
-        if dataset_class is None:
-            from ..data.dataset import ResidualDataset
+    #     if dataset_class is None:
+    #         from ..data.dataset import ResidualDataset
 
-            dataset_class = ResidualDataset
+    #         dataset_class = ResidualDataset
 
-        return dataset_class.from_csv(dataset_spec=self)
+    #     return dataset_class.from_csv(dataset_spec=self)
 
 
 @dataclass
@@ -164,7 +158,7 @@ entsoe_de = DataSpec(
     data_column_names=["load"],
     time_column_name="start",
     downsample_rate=4,
-    ylabel="Load [MW]",
+    # ylabel="Load [MW]",
 )
 
 entsoe_full = DataSpec(
@@ -188,7 +182,7 @@ entsoe_full = DataSpec(
         "be",
     ],
     time_column_name="Time [s]",
-    ylabel="Load [MW]",
+    # ylabel="Load [MW]",
 )
 
 water = DataSpec(
@@ -196,7 +190,7 @@ water = DataSpec(
     country_code="de",
     data_column_names=["Consumption"],
     time_column_name="Date",
-    ylabel="Water Consumption [a.u.]",
+    # ylabel="Water Consumption [a.u.]",
 )
 
 uci_pt = DataSpec(
@@ -206,7 +200,7 @@ uci_pt = DataSpec(
     time_column_name="datetime",
     split_by_category=False,
     remove_flatline=True,
-    ylabel="Load [kW]",
+    # ylabel="Load [kW]",
 )
 
 informer_etth1 = DataSpec(
@@ -214,7 +208,7 @@ informer_etth1 = DataSpec(
     country_code="cn",
     data_column_names=["OT"],
     time_column_name="date",
-    ylabel=r"Temperature [$^\circ$C]",
+    # ylabel=r"Temperature [$^\circ$C]",
 )
 
 informer_etth2 = DataSpec(
@@ -222,7 +216,7 @@ informer_etth2 = DataSpec(
     country_code="cn",
     data_column_names=["OT"],
     time_column_name="date",
-    ylabel=r"Temperature [$^\circ$C]",
+    # ylabel=r"Temperature [$^\circ$C]",
 )
 
 minigrid = DataSpec(
@@ -231,7 +225,7 @@ minigrid = DataSpec(
     data_column_names=["Load"],
     time_column_name="date",
     downsample_rate=None,
-    ylabel=" Consumption [kWh]",
+    # ylabel=" Consumption [kWh]",
 )
 
 solar = DataSpec(
@@ -276,9 +270,3 @@ specs_dict = dict(
     traffic=traffic,
     former_traffic=former_traffic,
 )
-
-
-def get_data_spec(name: str) -> DataSpec:
-    assert name in specs_dict, f"There is no know dataset specification {name}"
-    spec = specs_dict[name]
-    return spec
