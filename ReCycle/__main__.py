@@ -31,8 +31,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s:%(mess
 
 def configure(ctx, param, value):
     if value is not None:
+        path = Path(value)
+        if not path.exists():
+            raise ValueError(f"{value} not a file")
         cfg = ConfigParser()
-        cfg.read(value)
+        cfg.read(path)
         try:
             options = dict(cfg["options"])
         except KeyError:
@@ -60,6 +63,7 @@ def configure(ctx, param, value):
 @click.argument(
     "action", type=click.Choice(("train", "test", "infer", "hpo"), case_sensitive=False)
 )
+# TODO fix this in action spec, still defaults train is true
 # dataset options
 @click.option(
     "--dataset_name",
@@ -325,14 +329,15 @@ def configure(ctx, param, value):
     show_default=True,
     help="Use metadata as transformer decoder input",
 )
+# TODO divide the config into sections, at least one per spec object or so
 def main(**kwargs):
-    print(kwargs["dataset_name"])
     # NOTE build specs objects from parameters
     model_spec, dataset_spec, train_spec, action_spec = configure_run(**kwargs)
 
     # TODO build dataset from data and dataset specs
     # TODO build model from model specs
     # TODO run action with model on data from action specs
+    # TODO train_spec is only needed when actually training
     run.run_action(
         model_spec=model_spec,
         dataset_spec=dataset_spec,
