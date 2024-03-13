@@ -352,6 +352,7 @@ def main(**kwargs):
         for k in kwargs
         if (len(k.split("_")) >= 2 and k.split("_")[1]) == model_name
     }
+    # TODO delete all parameters from the unused model as well
     for key in model_params:
         del kwargs[f"model_{model_name}_{key}"]
     kwargs["model_args"] = model_params
