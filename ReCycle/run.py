@@ -52,13 +52,14 @@ def run_action(
             + ".pt"
         )
 
+        # TODO this should not use torch
         model_spec, dataset_spec, old_train_spec, state_dict = torch.load(load_file)
         # TODO log difference between old and new train spec
         logger.info(
             f"Loading from {load_file}:\n {model_spec=}\n {dataset_spec=}\n {old_train_spec=}"
         )
 
-        # TODO don't call thia a run, a wrapper around the model is probably also not that useful
+        # TODO don't call this a run, we have a generic forecast model wrapper around a torch or other model
         run = ModelFramework(
             model_spec, dataset_spec, premade_datasets=premade_datasets
         )
