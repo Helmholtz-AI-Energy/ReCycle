@@ -252,7 +252,7 @@ class ResidualDataset(Dataset):
             tests_data = train_data = valid_data = full_data
             nr_of_cats = len(target)
             train_len = int(nr_of_cats * dataset_spec.train_share)
-            tests_len = int(nr_of_cats * dataset_spec.tests_share)
+            tests_len = int(nr_of_cats * dataset_spec.test_share)
             valid_len = nr_of_cats - (train_len + tests_len)
 
             perm = torch.randperm(nr_of_cats).split([train_len, valid_len, tests_len])
@@ -270,7 +270,7 @@ class ResidualDataset(Dataset):
                 * dataset_spec.features_per_step
             )
             tests_len = (
-                -int(nr_of_days * dataset_spec.tests_share)
+                -int(nr_of_days * dataset_spec.test_share)
                 * dataset_spec.features_per_step
             )
             if len(full_data) % dataset_spec.features_per_step != 0:

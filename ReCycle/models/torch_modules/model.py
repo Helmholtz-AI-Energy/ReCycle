@@ -8,20 +8,17 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
-from ..data.embeddings import DataOnly
-from ..specs.model_specs import ModelSpec
+from ...data.embeddings import DataOnly
+from ...specs.model_specs import ModelSpec
 
 
-class ForecastModel(nn.Module):
+class ReCycleTorchModel(nn.Module):
     """
-    Base class for all models
-
-    Each model should call this __init__ on initialization and implement the process method.
-    New models should be added to models/__init__.py
+    Base class for all ReCycle PyTorch models
     """
 
     def __init__(self, model_spec: ModelSpec) -> None:
-        super(ForecastModel, self).__init__()
+        super(ReCycleTorchModel, self).__init__()
         model_spec.check_validity()
 
         self.model_name = model_spec.model_name

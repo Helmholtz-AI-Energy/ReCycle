@@ -1,5 +1,5 @@
 from random import randrange
-from typing import Optional, Tuple
+from typing import Optional
 
 import pandas as pd
 import torch
@@ -8,9 +8,10 @@ from torch.utils.data import DataLoader
 
 from ..utils.error_metrics import apply_error_metric
 from ..utils.tools import EarlyStopping
-from .model_dictionary import get_model_class
 
+from ..globals import predefined_models_dict
 from ..data.dataset import ResidualDataset
+from ..data.dataset_factory import build_datasets
 from ..specs import ModelSpec, DatasetSpec, TrainSpec
 from ..specs.dataset_specs import ResidualDatasetSpec
 
@@ -32,37 +33,28 @@ class ModelFramework:
         self,
         model_spec: ModelSpec,
         dataset_spec: DatasetSpec,
-        # For repeated runs the already built datasets can be reused
-        premade_datasets: Optional[
-            Tuple[ResidualDataset, ResidualDataset, ResidualDataset]
-        ] = None,
     ):
         self.model_spec = model_spec
         self.model_name = model_spec.model_name
 
-        if premade_datasets is None:
-            assert isinstance(
-                dataset_spec, ResidualDatasetSpec
-            ), "ResidualDataset requires ResidualDatasetSpec"
-            self.datasets = dataset_spec.create_datasets()
-            self.dataset_spec = dataset_spec
-            self.dataset_name = dataset_spec.data_spec.file_name
-        else:
-            logger.info("Using premade datasets")
-            self.datasets = premade_datasets
-            self.dataset_spec = self.datasets[0].dataset_spec
-            self.dataset_name = self.datasets[0].dataset_spec.data_spec.file_name
+        assert isinstance(
+            dataset_spec, ResidualDatasetSpec
+        ), "ResidualDataset requires ResidualDatasetSpec"
+        self.datasets = build_datasets(dataset_spec)
+        self.dataset_spec = dataset_spec
+        self.dataset_name = dataset_spec.data_spec.file_name
 
         # Define run mode, 0 is train, 1 is eval 2 is testing. Used for gradient tracking and dataset selection
         self._mode = 0
 
         # Initialize model
-        model_class = get_model_class(model_spec.model_name)
+        model_class = predefined_models_dict[model_spec.model_name]
         logger.info(f"Using {model_spec.model_name} model")
         self.model = model_class(model_spec=model_spec)
         # This is unnecessary for properly coded models, but some do not manage to do this themselves
         self.model.to(model_spec.device)
 
+    # TODO if a run is started with test, there is really no need to load training and validation datasets
     def mode(self, mode: str) -> None:
         """Sets model mode and flag for dataset selection used to select the dataset"""
         if mode in ["train", 0]:
@@ -90,7 +82,7 @@ class ModelFramework:
         criterion = train_spec.loss
         optimizer = train_spec.optimizer(
             self.model.parameters(),
-            lr=10**train_spec.learning_rate,
+            lr=10**train_spec.log_learning_rate,
             **train_spec.optimizer_args,
         )
 
@@ -234,7 +226,7 @@ class ModelFramework:
                             [total_calibration, batch_calibration.unsqueeze(0)]
                         )
 
-                    if self.model_spec.assume_symmetric_quantiles:
+                    if self.model_spec.symmetric_quantiles:
                         prediction = prediction[..., 0]
                     else:
                         prediction = prediction[..., prediction.shape[-1] // 2]

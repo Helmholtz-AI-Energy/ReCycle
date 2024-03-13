@@ -4,10 +4,11 @@ from torch import Tensor
 from torch.nn.modules.loss import _Loss, L1Loss
 from torch.optim import Optimizer, Adam
 
-from .model_specs import ModelSpec, model_spec_dict
-from .dataset_specs import DataSpec, DatasetSpec, ResidualDatasetSpec, specs_dict
+from .model_specs import ModelSpec
+from .dataset_specs import DataSpec, DatasetSpec, ResidualDatasetSpec
 from .train_specs import TrainSpec
 from .action_specs import ActionSpec
+from ..globals import predefined_dataspecs_dict, predefined_modelspecs_dict
 
 from ..utils.quantile_loss import get_quantile_loss
 
@@ -38,11 +39,11 @@ def configure_run(
     residual_forecast: bool = True,
     custom_quantiles: Optional[Union[List[int], Tensor]] = None,
     quantiles: Optional[int] = None,
-    assume_symmetric_quantiles: bool = False,
-    invert: bool = False,
+    symmetric_quantiles: bool = False,
+    invert_quantiles: bool = False,
     normalizer: Type[Normalizer] = MinMax,
     train_share: float = 0.6,
-    tests_share: float = 0.2,
+    test_share: float = 0.2,
     reduce: Optional[float] = None,
     residual_normalizer: Optional[Type[Normalizer]] = None,
     rhp_dataset: Union[
@@ -51,17 +52,17 @@ def configure_run(
     rhp_cycles: int = 3,
     rhp_cycle_len: int = 7,
     dataset_name: Optional[str] = None,
-    file_name: Optional[Union[str, Tuple[str, str, str]]] = None,
-    time_column_name: Optional[str] = None,
-    data_column_names: Optional[List[str]] = None,
-    metadata_column_names: Optional[List[str]] = None,
+    dataset_file_path: Optional[Union[str, Tuple[str, str, str]]] = None,
+    dataset_time_col: Optional[str] = None,
+    dataset_data_cols: Optional[List[str]] = None,
+    dataset_metadata_cols: Optional[List[str]] = None,
     country_code: Optional[str] = None,
     universal_holidays: bool = True,
     downsample_rate: Optional[int] = None,
     split_by_category: bool = False,
     remove_flatline: bool = False,
     root_path: str = "./datasets/",
-    learning_rate: float = -3,
+    log_learning_rate: float = -3,
     batch_size: int = 32,
     epochs: int = 200,
     patience: Optional[int] = 20,
@@ -69,10 +70,11 @@ def configure_run(
     optimizer: Type[Optimizer] = Adam,
     optimizer_args: Optional[dict] = None,
     profiling: bool = False,
-    save_path: str = "./saved_models/",
-    load_path: Optional[str] = None,
+    save_checkpoint_path: str = "./saved_models/",
+    load_checkpoint: Optional[str] = None,
     input_path: Optional[str] = None,
-    # **kwargs,
+    # model parameters
+    model_args={},
 ) -> (ModelSpec, DatasetSpec, TrainSpec, ActionSpec):
     # set up ModelSpec
 
@@ -80,7 +82,7 @@ def configure_run(
     device = _get_device()
     logger.info(f"Using {device}")
 
-    model_spec_class = model_spec_dict[model_name]
+    model_spec_class = predefined_modelspecs_dict[model_name]
     if custom_quantiles is not None:
         quantiles = len(custom_quantiles)
     if isinstance(embedding, str):
@@ -99,9 +101,9 @@ def configure_run(
             residual_forecast=residual_forecast,
             custom_quantiles=custom_quantiles,
             quantiles=quantiles,
-            assume_symmetric_quantiles=assume_symmetric_quantiles,
+            symmetric_quantiles=symmetric_quantiles,
             device=device,
-            # **model_args,
+            **model_args,
         )
     else:
         model_spec = model_spec_class(
@@ -117,23 +119,23 @@ def configure_run(
             residual_forecast=residual_forecast,
             custom_quantiles=custom_quantiles,
             quantiles=quantiles,
-            assume_symmetric_quantiles=assume_symmetric_quantiles,
+            symmetric_quantiles=symmetric_quantiles,
             device=device,
-            # **model_args,
+            **model_args,
         )
 
     # set up DatasetSpec
     if dataset_name is not None:
-        data_spec = specs_dict[dataset_name]
+        data_spec = predefined_dataspecs_dict[dataset_name]
     else:
         assert (
-            file_name is not None and time_column_name is not None
+            dataset_file_path is not None and dataset_time_col is not None
         ), "Either dataset_name or file_name and time_column_name must be specified"
         data_spec = DataSpec(
-            file_name=file_name,
-            time_column_name=time_column_name,
-            data_column_names=data_column_names,
-            metadata_column_names=metadata_column_names,
+            file_name=dataset_file_path,
+            time_column_name=dataset_time_col,
+            data_column_names=dataset_data_cols,
+            metadata_column_names=dataset_metadata_cols,
             country_code=country_code,
             universal_holidays=universal_holidays,
             downsample_rate=downsample_rate,
@@ -149,7 +151,7 @@ def configure_run(
         data_spec=data_spec,
         normalizer=normalizer,
         train_share=train_share,
-        tests_share=tests_share,
+        test_share=test_share,
         reduce=reduce,
         device=device,
         residual_normalizer=residual_normalizer,
@@ -164,8 +166,8 @@ def configure_run(
         loss = get_quantile_loss(
             custom_quantiles=custom_quantiles,
             quantile_nr=quantiles,
-            symmetric_quantiles=assume_symmetric_quantiles,
-            invert=invert,
+            symmetric_quantiles=symmetric_quantiles,
+            invert_quantiles=invert_quantiles,
         )
 
     patience = patience or epochs
@@ -173,7 +175,7 @@ def configure_run(
 
     # set up TrainSpec
     train_spec = TrainSpec(
-        learning_rate=learning_rate,
+        log_learning_rate=log_learning_rate,
         batch_size=batch_size,
         epochs=epochs,
         patience=patience,
@@ -185,7 +187,10 @@ def configure_run(
 
     # set up ActionSpec
     action_spec = ActionSpec(
-        action=action, save_path=save_path, load_path=load_path, input_path=input_path
+        action=action,
+        save_path=save_checkpoint_path,
+        load_path=load_checkpoint,
+        input_path=input_path,
     )
 
     return model_spec, dataset_spec, train_spec, action_spec

@@ -32,7 +32,7 @@ class ModelSpec:
     :param bool residual_forecast: if True modify output to be residual
     :param Optional[Union[List[int], Tensor]] custom_quantiles: Specifies a list of quantile values
     :param Optional[int] quantiles: specifies number of prediction quantiles, if not None
-    :param bool assume_symmetric_quantiles: halves number of quantiles by assuming they are symmetric around median
+    :param bool symmetric_quantiles: halves number of quantiles by assuming they are symmetric around median
 
     :param torch.device device: GPU or CPU to use, if None autodetection is used
     """
@@ -51,7 +51,7 @@ class ModelSpec:
     residual_forecast: bool = True
     custom_quantiles: Optional[Union[List[int], Tensor]] = None
     quantiles: Optional[int] = None
-    assume_symmetric_quantiles: bool = False
+    symmetric_quantiles: bool = False
 
     device: torch.device = None
 
@@ -139,9 +139,3 @@ class MLPSpec(ModelSpec):
             logger.warning(
                 f"{self.nr_of_hidden_layers=} is ignored since {self.hidden_layers=} is provided"
             )
-
-
-model_spec_dict = dict(
-    Transformer=TransformerSpec,
-    MLP=MLPSpec,
-)

@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 
 import torch
 
-from .models import ModelFramework
+from .models.model_framework import ModelFramework
 
 # TODO output visualization to files in the log dir
 # from .visualisation import (
@@ -29,18 +29,8 @@ def run_action(
     dataset_spec: DatasetSpec,
     train_spec: TrainSpec,
     action_spec: ActionSpec,
-    # For repeated runs the already built datasets can be reused
-    premade_datasets: Optional[
-        Tuple[ResidualDataset, ResidualDataset, ResidualDataset]
-    ] = None,
 ) -> Optional[Tuple[float, Tuple[ResidualDataset, ResidualDataset, ResidualDataset]]]:
     action_spec.check_validity()
-
-    if not (
-        action_spec.train or action_spec.test or action_spec.infer or action_spec.hpo
-    ):
-        print("No action to perform, set train, test, infer, or hpo")
-        return
 
     model_spec.check_validity()
     dataset_spec.check_validity()
@@ -60,28 +50,19 @@ def run_action(
         )
 
         # TODO don't call this a run, we have a generic forecast model wrapper around a torch or other model
-        run = ModelFramework(
-            model_spec, dataset_spec, premade_datasets=premade_datasets
-        )
+        run = ModelFramework(model_spec, dataset_spec)
         run.model.load_state_dict(state_dict=state_dict)
     else:
-        run = ModelFramework(
-            model_spec, dataset_spec, premade_datasets=premade_datasets
-        )
+        run = ModelFramework(model_spec, dataset_spec)
 
-    if action_spec.train:
+    if action_spec.action == "train":
         train_loss, valid_loss, best_loss = run.train_model(train_spec)
-
-        if action_spec.hyper_optimization_interrupt:
-            return best_loss, run.datasets
 
         # TODO generate model file names, such that models are not accidentally overwritten
         # set upt save location
         os.makedirs(action_spec.save_path, exist_ok=True)
-        save_file = (
-            action_spec.save_path
-            + "_".join([model_spec.model_name, dataset_spec.data_spec.file_name])
-            + ".pt"
+        save_file = action_spec.save_path / (
+            "_".join([model_spec.model_name, dataset_spec.data_spec.file_name]) + ".pt"
         )
 
         # get model state dictionary and save
@@ -93,7 +74,7 @@ def run_action(
         #     logger.info("Plotting loss")
         #     plot_losses(train_loss, valid_loss)
 
-    if action_spec.test:
+    elif action_spec.action == "test":
         logger.info("Evaluating test set")
         run.mode("test")
         if model_spec.quantiles is not None:
@@ -120,6 +101,13 @@ def run_action(
         print("Load profiling:")
         rhp_summary = run.test_rhp(batch_size=test_batchsize)
         print(rhp_summary)
+
+    elif action_spec.action == "infer":
+        raise
+    elif action_spec.action == "hpo":
+        train_loss, valid_loss, best_loss = run.train_model(train_spec)
+
+        return best_loss, run.datasets
 
     # if action_spec.plot_prediction:
     #     xlabel = dataset_spec.data_spec.xlabel

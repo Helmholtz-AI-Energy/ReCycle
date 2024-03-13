@@ -12,11 +12,11 @@ from .specs import configure_run
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s:%(message)s")
 # quantiles = None
-# assume_symmetric_quantiles = False
+# symmetric_quantiles = False
 # invert = False
 
 # with symmetric quantiles only half the quantiles and the median need to be predicted
-# if assume_symmetric_quantiles:
+# if symmetric_quantiles:
 #     quantiles = quantiles // 2 + 1
 # TODO make sure number of quantiles is set correctly
 # TODO enable load specs from config file
@@ -43,6 +43,7 @@ def configure(ctx, param, value):
         ctx.default_map = options
 
 
+# TODO if hpo, should multiple values be allowed for all model parameters?
 # TODO check that naming of "token", "timestep" and so on is consistent
 # TODO replace argparse with click and implement config file
 @click.command()
@@ -71,7 +72,7 @@ def configure(ctx, param, value):
     type=str,
     default=None,
     show_default=True,
-    help="Name of existing dataset",
+    help="Name of existing predefined dataset",
 )
 # TODO make choice
 @click.option(
@@ -86,6 +87,7 @@ def configure(ctx, param, value):
         path_type=Path,
     ),
 )
+# TODO this could be separate files for traing, validation, and test
 @click.option(
     "--dataset_time_column",
     "dataset_time_col",
@@ -102,6 +104,7 @@ def configure(ctx, param, value):
     show_default=True,
     help="Index of columns in dataset file or dataframe containing time series data values.",
 )
+# TODO allow multiple values
 @click.option(
     "--dataset_metadata_columns",
     "dataset_metadata_cols",
@@ -110,6 +113,7 @@ def configure(ctx, param, value):
     show_default=True,
     help="index of columns in the dataset file or dataframe containing metadata",
 )
+# TODO allow multiple values
 @click.option(
     "--dataset_train_share",
     "train_share",
@@ -127,7 +131,8 @@ def configure(ctx, param, value):
     help="Fraction of dataset used for validation",
 )
 @click.option(
-    "--dataset_reduce_share",
+    "--dataset_reduce",
+    "reduce",
     type=float,
     default=None,
     show_default=True,
@@ -244,6 +249,7 @@ def configure(ctx, param, value):
 # TODO what does traditionally mean?
 @click.option(
     "--model_invert_quantiles",
+    "invert_quantiles",
     type=bool,
     default=False,
     show_default=True,
@@ -252,7 +258,7 @@ def configure(ctx, param, value):
 # TODO wot?
 @click.option(
     "--model_log_learning_rate",
-    "lr",
+    "log_learning_rate",
     type=float,
     default=-3.0,
     show_default=True,
@@ -265,6 +271,14 @@ def configure(ctx, param, value):
     default=32,
     show_default=True,
     help="batch size during model training",
+)
+@click.option(
+    "--model_epochs",
+    "epochs",
+    type=int,
+    default=200,
+    show_default=True,
+    help="number of training epochs",
 )
 # TODO should these go into a training spec, instead of the model?
 @click.option(
@@ -288,7 +302,7 @@ def configure(ctx, param, value):
 # TODO check. this should probably always be a file, or the most recent checkpoint from the dir
 @click.option(
     "--model_save_checkpoint",
-    "model_save_checkpoint",
+    "save_checkpoint_path",
     type=click.Path(),
     default=Path("./saved_models/"),
     show_default=True,
@@ -296,16 +310,16 @@ def configure(ctx, param, value):
 )
 # TODO check. this should be a path and checkpoint filenames should be generated from epoch/iteration and monitor metric value?
 @click.option(
-    "--model_trafo_num_heads",
-    "nheads",
+    "--model_Transformer_num_heads",
+    "model_Transformer_nheads",
     type=int,
     default=1,
     show_default=True,
     help="Number of transformer heads",
 )
 @click.option(
-    "--model_trafo_d_feedforward",
-    "dim_feedforward",
+    "--model_Transformer_d_feedforward",
+    "model_Transformer_dim_feedforward",
     type=int,
     default=32,
     show_default=True,
@@ -314,16 +328,16 @@ def configure(ctx, param, value):
 # TODO consistent and better naming, dim_feedfoward should probably be d_out, this could also be a generic model parameter, rather than transformer specific
 # TODO infer this from output window and primary cycle len
 @click.option(
-    "--model_trafo_d_hidden",
-    "d_hidden",
+    "--model_Transformer_d_hidden",
+    "model_Transformer_d_hidden",
     type=int,
     default=32,
     show_default=True,
     help="Dimension of the hidden latent space in the feedforward layer of an attention block",
 )
 @click.option(
-    "--model_trafo_meta_token",
-    "meta_token",
+    "--model_Transformer_meta_token",
+    "model_Transformer_meta_token",
     type=bool,
     default=True,
     show_default=True,
@@ -332,6 +346,15 @@ def configure(ctx, param, value):
 # TODO divide the config into sections, at least one per spec object or so
 def main(**kwargs):
     # NOTE build specs objects from parameters
+    model_name = kwargs["model_name"]
+    model_params = {
+        "_".join(k.split("_")[2:]): kwargs[k]
+        for k in kwargs
+        if (len(k.split("_")) >= 2 and k.split("_")[1]) == model_name
+    }
+    for key in model_params:
+        del kwargs[f"model_{model_name}_{key}"]
+    kwargs["model_args"] = model_params
     model_spec, dataset_spec, train_spec, action_spec = configure_run(**kwargs)
 
     # TODO build dataset from data and dataset specs

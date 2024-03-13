@@ -13,7 +13,7 @@ class TrainSpec:
     """
     Training parameter specification
 
-    :param float learning_rate: log10 of the training learning rate
+    :param float log_learning_rate: log10 of the training learning rate
     :param int batch_size: dataloader batch size
     :param int epochs: maximum number of training epochs
     :param int patience: early stopping patience
@@ -23,7 +23,7 @@ class TrainSpec:
     :param bool profiling: enables profiling for the training loop
     """
 
-    learning_rate: float = -3.0
+    log_learning_rate: float = -3.0
     batch_size: int = 32
     epochs: int = 200
     patience: int = 20
