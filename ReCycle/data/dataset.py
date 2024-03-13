@@ -1,7 +1,6 @@
 import torch
 import pandas as pd
 
-from abc import ABC, abstractmethod
 from operator import itemgetter
 from torch.nn.functional import one_hot, l1_loss
 
@@ -22,21 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 D = TypeVar("D")
-
-
-class TimeSeriesDataset(Dataset, ABC):
-    @abstractmethod
-    def __init__(self, data: DataFrame, dataset_spec: ResidualDatasetSpec) -> None:
-        """"""
-
-    @classmethod
-    @abstractmethod
-    def from_spec(cls: D, spec: ResidualDatasetSpec) -> Tuple[D, D, D]:
-        """"""
-
-    @abstractmethod
-    def to(self, device: Optional[torch.device] = None, *args, **kwargs) -> None:
-        """"""
 
 
 class ResidualDataset(Dataset):
