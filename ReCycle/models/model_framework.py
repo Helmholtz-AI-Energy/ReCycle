@@ -1,6 +1,3 @@
-from random import randrange
-from typing import Optional
-
 import pandas as pd
 import torch
 from torch import Tensor
@@ -11,7 +8,6 @@ from ..utils.tools import EarlyStopping
 
 from ..globals import predefined_models_dict
 from ..data.dataset import ResidualDataset
-from ..data.dataset_factory import build_datasets
 from ..specs import ModelSpec, DatasetSpec, TrainSpec
 from ..specs.dataset_specs import ResidualDatasetSpec
 
@@ -26,21 +22,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ModelFramework:
+class ReCycleForecastModel:
     """Wrapper class that saves and distributes all relevant features for the benchmark."""
 
     def __init__(
-        self,
-        model_spec: ModelSpec,
-        dataset_spec: DatasetSpec,
+        self, model_spec: ModelSpec, dataset_spec: DatasetSpec, train_spec: TrainSpec
     ):
         self.model_spec = model_spec
         self.model_name = model_spec.model_name
+        self.train_spec = train_spec
 
         assert isinstance(
             dataset_spec, ResidualDatasetSpec
         ), "ResidualDataset requires ResidualDatasetSpec"
-        self.datasets = build_datasets(dataset_spec)
+        dataset_spec.check_validity()
+        self.datasets = ResidualDataset.from_csv(dataset_spec=dataset_spec)
         self.dataset_spec = dataset_spec
         self.dataset_name = dataset_spec.data_spec.file_name
 
@@ -72,11 +68,8 @@ class ModelFramework:
     def dataset(self) -> ResidualDataset:
         return self.datasets[self._mode]
 
-    def train_model(self, train_spec: Optional[TrainSpec]):
+    def train_model(self, train_spec: TrainSpec):
         """Train self.model on self.train_set for several epochs, also obtains the validation loss and returns both"""
-        # if train_spec is None:
-        #     train_spec = self.train_spec
-
         # define training method
         train_spec.clean()
         criterion = train_spec.loss
@@ -96,6 +89,8 @@ class ModelFramework:
         valid_dataloader = DataLoader(
             valid_set, batch_size=train_spec.batch_size, shuffle=True
         )
+        assert len(train_dataloader) > 0
+        assert len(valid_dataloader) > 0
 
         train_loss = torch.zeros(train_spec.epochs, len(train_dataloader))
         valid_loss = torch.zeros(train_spec.epochs)
@@ -142,17 +137,31 @@ class ModelFramework:
 
     def predict(
         self,
-        idx: int or None = None,
-        dataset_name: str = "test",
+        input_df,
+        # idx: int or None = None,
+        # dataset_name: str = "test",
+        output_path,
         denormalize: bool = True,
         raw: bool = False,
     ) -> (Tensor, Tensor, Tensor):
-        """Used to make sample forecasts from specified set, if raw=True residuals are returned, if used"""
-        self.mode(dataset_name)
-        dataset = self.dataset()
-        idx = idx or randrange(0, len(dataset))
-        print(idx)
-        sample = dataset[idx]
+        """
+
+        Used to make sample forecasts from specified set, if raw=True residuals are returned, if used
+        Make forecast from input time series dataframe input_df.
+        Assumes input is a dataset and takes the final input in the sequence.
+        If "denormalize":
+        If "raw":
+
+        """
+        # TODO check this works the intended way
+        # TODO name the hard coded indices
+        # self.mode(dataset_name)
+        self.mode = "test"
+        # dataset = self.dataset()
+        # idx = idx or randrange(0, len(dataset))
+        # print(idx)
+        dataset = type(self.dataset())(data=input_df, dataset_spec=self.dataset_spec)
+        sample = dataset[-1]
 
         self.model.eval()
         with torch.no_grad():
@@ -184,8 +193,8 @@ class ModelFramework:
                 output_rhp = output_rhp.unsqueeze(-1).expand(
                     *output_rhp.shape, self.model.nr_of_quantiles
                 )
-            print(output_reference.shape, output_rhp.shape)
             prediction -= output_rhp
+
         return prediction, input_reference, output_reference
 
     def test_forecast(
@@ -288,7 +297,7 @@ class ModelFramework:
 
         return results.mean().to_frame().T
 
-    def save_to(self, save_path: str) -> None:
+    def save(self, save_path: str) -> None:
         """Save trained model to [save_path]"""
         hyperparameters = self.args
         state_dict = self.model.state_dict()
@@ -296,12 +305,20 @@ class ModelFramework:
         torch.save([hyperparameters, state_dict], save_path)
 
     @classmethod
-    def load_from(cls, load_path: str):
+    def load(cls, load_path: str):
         """Load model saved with save_to-method"""
         hyperparameters, state_dict = torch.load(load_path)
         run = cls(**hyperparameters)
         run.model.load_state_dict(state_dict)
         return run
+
+    def reset(self) -> "ReCycleForecastModel":
+        # TODO reset parameters
+        raise
+        return self
+
+    def fit(self):
+        return self.train_model(self.train_spec)
 
 
 #    def dropout_test_forecast(self, sample_nr: Optional[int] = 50) -> (Tensor, Tensor, Tensor):

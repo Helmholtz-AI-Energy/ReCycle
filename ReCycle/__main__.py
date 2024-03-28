@@ -64,8 +64,15 @@ def configure(ctx, param, value):
 @click.argument(
     "action", type=click.Choice(("train", "test", "infer", "hpo"), case_sensitive=False)
 )
-# TODO fix this in action spec, still defaults train is true
 # dataset options
+@click.option(
+    "--input_file_path",
+    "input_path",
+    type=str,
+    default=None,
+    show_default=True,
+    help="Path to input data for inference in csv format",
+)
 @click.option(
     "--dataset_name",
     "dataset_name",
@@ -82,6 +89,19 @@ def configure(ctx, param, value):
         exists=True,
         file_okay=True,
         dir_okay=False,
+        readable=True,
+        writable=False,
+        path_type=Path,
+    ),
+)
+# TODO better help
+@click.option(
+    "--dataset_root_path",
+    "dataset_root_path",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
         readable=True,
         writable=False,
         path_type=Path,
@@ -210,6 +230,7 @@ def configure(ctx, param, value):
 @click.option(
     "--embedding", "embedding", type=str, default="default", show_default=True, help=""
 )
+# TODO embedding args
 # TODO fix naming, go to choice, fix help message
 @click.option(
     "--model_residual_input",
@@ -319,13 +340,13 @@ def configure(ctx, param, value):
 )
 @click.option(
     "--model_Transformer_d_feedforward",
-    "model_Transformer_dim_feedforward",
+    "model_Transformer_d_feedforward",
     type=int,
     default=32,
     show_default=True,
     help="dimension of final transformer layer",
 )
-# TODO consistent and better naming, dim_feedfoward should probably be d_out, this could also be a generic model parameter, rather than transformer specific
+# TODO consistent and better naming, d_feedfoward should probably be d_out, this could also be a generic model parameter, rather than transformer specific
 # TODO infer this from output window and primary cycle len
 @click.option(
     "--model_Transformer_d_hidden",
@@ -346,6 +367,7 @@ def configure(ctx, param, value):
 # TODO divide the config into sections, at least one per spec object or so
 def main(**kwargs):
     # NOTE build specs objects from parameters
+    # TODO clean this up
     model_name = kwargs["model_name"]
     model_params = {
         "_".join(k.split("_")[2:]): kwargs[k]

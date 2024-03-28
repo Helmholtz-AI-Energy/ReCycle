@@ -73,7 +73,9 @@ class MultiLayerPerceptron(ReCycleTorchModel):
         self,
         input_sequence: Tensor,
         batch_size: int,
+        input_day_metadata: Optional[Tensor] = None,
         input_metadata: Optional[Tensor] = None,
+        decoder_day_metadata: Optional[Tensor] = None,
         decoder_metadata: Optional[Tensor] = None,
         forecast_rhp: Optional[Tensor] = None,
         reference: Optional[Tensor] = None,
@@ -81,6 +83,7 @@ class MultiLayerPerceptron(ReCycleTorchModel):
         model_input = torch.flatten(input_sequence, start_dim=1)
         output_sequence = self.process(model_input)
 
-        return output_sequence.unflatten(
+        output_sequence = output_sequence.unflatten(
             -1, (self.forecast_window, self.output_features)
         )
+        return output_sequence

@@ -1,5 +1,4 @@
 from typing import Optional
-from pathlib import Path
 
 import torch
 from torch import nn
@@ -54,6 +53,8 @@ class ReCycleTorchModel(nn.Module):
         self,
         input_sequence: Tensor,
         batch_size: int,
+        input_day_metadata: Optional[Tensor] = None,
+        decoder_day_metadata: Optional[Tensor] = None,
         input_metadata: Optional[Tensor] = None,
         decoder_metadata: Optional[Tensor] = None,
         forecast_rhp: Optional[Tensor] = None,
@@ -65,24 +66,39 @@ class ReCycleTorchModel(nn.Module):
         self,
         input_sequence: Tensor,
         input_rhp: Tensor,
-        input_metadata: Tensor,
+        input_day_metadata: Tensor,
         forecast_rhp: Tensor,
-        decoder_metadata: Tensor,
+        decoder_day_metadata: Tensor,
+        input_metadata: Optional[Tensor] = None,
+        decoder_metadata: Optional[Tensor] = None,
         cat_index: Optional[Tensor] = None,
         reference: Optional[Tensor] = None,
-    ) -> list:
-        return [input_metadata, decoder_metadata, forecast_rhp]
+    ) -> dict:
+        selected = {
+            "input_day_metadata": input_day_metadata,
+            "decoder_day_metadata": decoder_day_metadata,
+            "forecast_rhp": forecast_rhp,
+        }
+
+        if input_metadata is not None:
+            selected["input_metadata"] = input_metadata
+        if decoder_metadata is not None:
+            selected["decoder_metadata"] = decoder_metadata
+
+        return selected
 
     # TODO interface, dataframes?
     def predict(
         self,
         input_sequence: Tensor,
         input_rhp: Tensor,
-        input_metadata: Tensor,
+        input_day_metadata: Tensor,
         forecast_rhp: Tensor,
-        decoder_metadata: Tensor,
+        decoder_day_metadata: Tensor,
         cat_index: Optional[Tensor] = None,
         reference: Optional[Tensor] = None,
+        input_metadata: Optional[Tensor] = None,
+        decoder_metadata: Optional[Tensor] = None,
         raw: bool = False,
     ) -> Tensor:
         # protection from label abuse, but allows use of methods like teacher forcing
@@ -93,8 +109,10 @@ class ReCycleTorchModel(nn.Module):
         metadata = self._select_metadata(
             input_sequence,
             input_rhp,
-            input_metadata,
+            input_day_metadata,
             forecast_rhp,
+            decoder_day_metadata,
+            input_metadata,
             decoder_metadata,
             cat_index,
             reference,
@@ -104,8 +122,14 @@ class ReCycleTorchModel(nn.Module):
             input_sequence -= input_rhp
 
         batch_size = 1 if input_sequence.dim() < 3 else input_sequence.shape[0]
-        input_sequence = self.embedding(input_sequence, input_metadata)
-        prediction = self(input_sequence, batch_size, *metadata, reference=reference)
+        if input_metadata is None:
+            input_sequence = self.embedding(input_sequence, input_day_metadata)
+        else:
+            input_sequence = self.embedding(
+                input_sequence, input_day_metadata, input_metadata
+            )
+
+        prediction = self(input_sequence, batch_size, **metadata, reference=reference)
 
         # fold feature dimension into (feature dimension, quantile dimension) if required
         if self.nr_of_quantiles is not None:
@@ -133,7 +157,7 @@ class ReCycleTorchModel(nn.Module):
             prediction = self.predict(*batch)
 
             # Calculate loss
-            reference = batch[-1]
+            reference = batch[6]
             loss = criterion(prediction, reference)
             total_loss[n] = loss.clone()
 
@@ -151,25 +175,12 @@ class ReCycleTorchModel(nn.Module):
             total_loss = torch.tensor(0.0, device=self.device)
             for batch in valid_dataloader:
                 # Predict, evaluate and track loss
-                prediction = self.predict(*batch[:-1])  # Evaluation may not use labels
-                reference = batch[-1]
+                if len(batch) == 7:
+                    prediction = self.predict(*batch[:-1])  # Evaluation may not use labels
+                else:
+                    prediction = self.predict(*batch[:6], None, *batch[7:])
+                reference = batch[6]
                 loss = criterion(prediction, reference)
                 total_loss += loss.clone()
 
         return total_loss / len(valid_dataloader)
-
-    def fit(self):
-        # TODO
-        return
-
-    def reset(self):
-        # TODO
-        return
-
-    def save(self, path: Path):
-        # TODO
-        return
-
-    def load(self, path: Path):
-        # TODO
-        return

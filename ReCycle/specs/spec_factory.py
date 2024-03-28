@@ -30,10 +30,9 @@ def configure_run(
     historic_window: int,
     forecast_window: int,
     features_per_step: int,
-    meta_features: Optional[int] = None,
+    meta_features: Optional[int] = 9,
     d_model: int = None,
-    embedding: Optional[Union[str, FullEmbedding]] = None,
-    embedding_args: Optional[dict] = None,
+    embedding: Optional[Union[str, FullEmbedding]] = "default",
     dropout: float = 0.0,
     residual_input: bool = True,
     residual_forecast: bool = True,
@@ -56,12 +55,12 @@ def configure_run(
     dataset_time_col: Optional[str] = None,
     dataset_data_cols: Optional[List[str]] = None,
     dataset_metadata_cols: Optional[List[str]] = None,
-    country_code: Optional[str] = None,
+    dataset_root_path: str = "./datasets/",
+    dataset_country_code: Optional[str] = None,
     universal_holidays: bool = True,
     downsample_rate: Optional[int] = None,
     split_by_category: bool = False,
     remove_flatline: bool = False,
-    root_path: str = "./datasets/",
     log_learning_rate: float = -3,
     batch_size: int = 32,
     epochs: int = 200,
@@ -73,6 +72,7 @@ def configure_run(
     save_checkpoint_path: str = "./saved_models/",
     load_checkpoint: Optional[str] = None,
     input_path: Optional[str] = None,
+    output_path: Optional[str] = None,
     # model parameters
     model_args={},
 ) -> (ModelSpec, DatasetSpec, TrainSpec, ActionSpec):
@@ -86,16 +86,18 @@ def configure_run(
     if custom_quantiles is not None:
         quantiles = len(custom_quantiles)
     if isinstance(embedding, str):
-        embedding_args = embedding_args or {}
+        meta_cols = 0
+        if dataset_metadata_cols is not None:
+            meta_cols = len(dataset_metadata_cols)
         model_spec = model_spec_class.from_embedding_name(
             model_name=model_name,
             historic_window=historic_window,
             forecast_window=forecast_window,
             features_per_step=features_per_step,
             meta_features=meta_features,
+            meta_cols=meta_cols,
             d_model=d_model,
             embedding=embedding,
-            embedding_args=embedding_args,
             dropout=dropout,
             residual_input=residual_input,
             residual_forecast=residual_forecast,
@@ -105,7 +107,7 @@ def configure_run(
             device=device,
             **model_args,
         )
-    else:
+    elif isinstance(embedding, FullEmbedding):
         model_spec = model_spec_class(
             model_name=model_name,
             historic_window=historic_window,
@@ -123,10 +125,14 @@ def configure_run(
             device=device,
             **model_args,
         )
+    else:
+        raise ValueError()
 
     # set up DatasetSpec
     if dataset_name is not None:
         data_spec = predefined_dataspecs_dict[dataset_name]
+        data_spec.root_path = dataset_root_path
+        # TODO update the other stuff if necessary
     else:
         assert (
             dataset_file_path is not None and dataset_time_col is not None
@@ -136,12 +142,12 @@ def configure_run(
             time_column_name=dataset_time_col,
             data_column_names=dataset_data_cols,
             metadata_column_names=dataset_metadata_cols,
-            country_code=country_code,
+            country_code=dataset_country_code,
             universal_holidays=universal_holidays,
             downsample_rate=downsample_rate,
             split_by_category=split_by_category,
             remove_flatline=remove_flatline,
-            root_path=root_path,
+            root_path=dataset_root_path,
         )
 
     dataset_spec = ResidualDatasetSpec(
@@ -191,6 +197,7 @@ def configure_run(
         save_path=save_checkpoint_path,
         load_path=load_checkpoint,
         input_path=input_path,
+        output_path=output_path,
     )
 
     return model_spec, dataset_spec, train_spec, action_spec

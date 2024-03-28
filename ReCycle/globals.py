@@ -11,7 +11,7 @@ predefined_modelspecs_dict = dict(
 )
 
 entsoe_de = DataSpec(
-    file_name="entsoe_de",
+    file_name="de",
     country_code="de",
     data_column_names=["load"],
     time_column_name="start",
@@ -52,12 +52,15 @@ water = DataSpec(
 )
 
 uci_pt = DataSpec(
-    file_name="uci_pt",
+    file_name="LD2011_2014",
     country_code="pt",
     data_column_names=["MT_320"],
-    time_column_name="datetime",
+    time_column_name="Unnamed: 0",
     split_by_category=False,
     remove_flatline=True,
+    file_extension=".txt",
+    sep=";",
+    decimal=","
     # ylabel="Load [kW]",
 )
 

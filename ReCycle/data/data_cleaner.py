@@ -1,13 +1,14 @@
 import pandas as pd
 import holidays
 from datetime import timedelta
+import logging
 
-from typing import Optional, List, Dict, Union
+from typing import List
 from pandas import DataFrame
 from numpy import NaN
 
+from ..specs.dataset_specs import DataSpec
 
-import logging
 
 logger = logging.getLogger(__name__)
 

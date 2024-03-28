@@ -4,7 +4,7 @@ from math import log
 
 # from data.normalizer import InformerTimeNorm
 
-from typing import Optional, Type, Union
+from typing import Optional
 from torch import Tensor
 
 
@@ -46,10 +46,10 @@ class VoidEmbedding(BasicEmbedding):
     def __init__(
         self, input_features: int, output_features: int = 0, device: torch.device = None
     ):
-        assert output_features is 0, f"Void embedding always returns 0 output features"
+        assert output_features == 0, "Void embedding always returns 0 output features"
         super(VoidEmbedding, self).__init__(input_features, output_features, device)
 
-    def forward(self, input_sequence: Tensor) -> Tensor:
+    def forward(self, *args) -> Tensor:
         return torch.empty(0, device=self.device)
 
 
@@ -340,18 +340,19 @@ class FullEmbedding(nn.Module):
     def __init__(
         self,
         data_embedding: BasicEmbedding,
-        metadata_embedding: BasicEmbedding,
+        *metadata_embeddings: BasicEmbedding,
         output_features: int,
     ):
-        assert (
-            data_embedding.device == metadata_embedding.device
-        ), f"Both embeddings must be on same device"
+        for me in metadata_embeddings:
+            assert (
+                data_embedding.device == me.device
+            ), "Both embeddings must be on same device"
         super(FullEmbedding, self).__init__()
 
-        input_features = (
-            data_embedding.input_features,
-            metadata_embedding.input_features,
-        )
+        input_features = [data_embedding.input_features] + [
+            me.input_features for me in metadata_embeddings
+        ]
+        input_features = tuple(input_features)
         device = data_embedding.device
 
         self.input_features = input_features
@@ -359,7 +360,7 @@ class FullEmbedding(nn.Module):
         self.device = device
 
         self.data_embedding = data_embedding
-        self.metadata_embedding = metadata_embedding
+        self.metadata_embeddings = metadata_embeddings
 
     def forward(
         self, input_sequence: Tensor, metadata: Optional[Tensor] = None
@@ -375,19 +376,21 @@ class FullEmbedding(nn.Module):
 
 class AdditiveFullEmbedding(FullEmbedding):
     def __init__(
-        self, data_embedding: BasicEmbedding, metadata_embedding: BasicEmbedding
+        self, data_embedding: BasicEmbedding, *metadata_embeddings: BasicEmbedding
     ):
-        if metadata_embedding.output_features != 0:
-            assert (
-                data_embedding.output_features == metadata_embedding.output_features
-            ), (
-                f"For additive embedding combination output_features of both Embeddings"
-                f"({data_embedding.output_features}, {metadata_embedding.output_features}) must match"
-            )
+        for m in metadata_embeddings:
+            if m.output_features != 0:
+                assert (
+                    data_embedding.output_features
+                    == metadata_embeddings.output_features
+                ), (
+                    f"For additive embedding combination output_features of both Embeddings"
+                    f"({data_embedding.output_features}, {m.output_features}) must match"
+                )
         output_features = data_embedding.output_features
 
         super(AdditiveFullEmbedding, self).__init__(
-            data_embedding, metadata_embedding, output_features
+            data_embedding, *metadata_embeddings, output_features
         )
 
     def forward(
@@ -395,35 +398,39 @@ class AdditiveFullEmbedding(FullEmbedding):
     ) -> Tensor:
         # If metadata_dict is None, metadata_embedding should be void or identity
         # If metadata_dict is None or VoidEmbedding is used, the resulting None is replaced with 0
-        if self.metadata_embedding.output_features == 0:
-            return self.data_embedding(input_sequence)
-        else:
-            embedded_metadata = self.metadata_embedding(metadata)
-            embedded_data = self.data_embedding(input_sequence)
-            return embedded_data + embedded_metadata
+
+        embedded_data = self.data_embedding(input_sequence)
+        for m, me in zip(metadata, self.metadata_embeddings):
+            if me.output_features == 0:
+                continue
+            embedded_data += me(m)
+
+        return embedded_data
 
 
 class ConcatFullEmbedding(FullEmbedding):
     def __init__(
-        self, data_embedding: BasicEmbedding, metadata_embedding: BasicEmbedding
+        self, data_embedding: BasicEmbedding, *metadata_embeddings: BasicEmbedding
     ):
-        output_features = (
-            data_embedding.output_features + metadata_embedding.output_features
+        output_features = data_embedding.output_features + sum(
+            [me.output_features for me in metadata_embeddings]
         )
 
         super(ConcatFullEmbedding, self).__init__(
-            data_embedding, metadata_embedding, output_features
+            data_embedding, *metadata_embeddings, output_features=output_features
         )
 
-    def forward(
-        self, input_sequence: Tensor, metadata: Optional[Tensor] = None
-    ) -> Tensor:
-        embedded_metadata = self.metadata_embedding(metadata)
+    def forward(self, input_sequence: Tensor, *metadata: Optional[Tensor]) -> Tensor:
+        assert len(metadata) == len(self.metadata_embeddings)
+        assert metadata[0] is not None
         embedded_data = self.data_embedding(input_sequence)
-        # print(embedded_data.shape, embedded_metadata.shape) # common debug check
-        return torch.cat([embedded_data, embedded_metadata], dim=-1)
+        embedded_metadata = [
+            me(m) for (me, m) in zip(self.metadata_embeddings, metadata)
+        ]
+        return torch.cat([embedded_data, *embedded_metadata], dim=-1)
 
 
+# TODO adapt to metadata embedding for arbitrary metadata
 class InputLinearAugmentation(ConcatFullEmbedding):
     def __init__(
         self,
@@ -441,6 +448,10 @@ class InputLinearAugmentation(ConcatFullEmbedding):
             data_embedding, metadata_embedding
         )
 
+    def forward(self, input_sequence: Tensor, *metadata) -> Tensor:
+        assert len(metadata) == 1
+        super(InputLinearAugmentation, self).forward(input_sequence, *metadata)
+
 
 class MetadataAugmentation(ConcatFullEmbedding):
     # Straight concat of data and metadata_dict
@@ -451,6 +462,10 @@ class MetadataAugmentation(ConcatFullEmbedding):
         metadata_embedding = IdentityEmbedding(metadata_features, device=device)
 
         super(MetadataAugmentation, self).__init__(data_embedding, metadata_embedding)
+
+    def forward(self, input_sequence: Tensor, *metadata) -> Tensor:
+        assert len(metadata) == 1
+        super(MetadataAugmentation, self).forward(input_sequence, *metadata)
 
 
 class DataOnly(ConcatFullEmbedding):
@@ -466,16 +481,21 @@ def select_embedding(
     name: str,
     input_features: int,
     meta_features: Optional[int] = None,
-    embedding_args: Optional[dict] = None,
+    meta_cols: Optional[int] = 0,
 ) -> FullEmbedding:
+    data_embedding = IdentityEmbedding(input_features)
+    meta_embeddings = []
     if name is None or (name == "default" and meta_features is None):
-        data_embedding = IdentityEmbedding(input_features)
-        meta_embedding = VoidEmbedding(input_features)
-        return ConcatFullEmbedding(data_embedding, meta_embedding)
+        meta_embeddings.append(VoidEmbedding(input_features))
     elif name == "default":
-        data_embedding = IdentityEmbedding(input_features)
-        meta_embedding = IdentityEmbedding(meta_features)
-        return ConcatFullEmbedding(data_embedding, meta_embedding)
+        meta_embeddings.append(IdentityEmbedding(meta_features))
+    else:
+        raise ValueError("Unknown embedding name.")
+
+    if meta_cols > 0:
+        meta_embeddings.append(IdentityEmbedding(meta_cols * input_features))
+
+    return ConcatFullEmbedding(data_embedding, *meta_embeddings)
 
 
 # ------------------------------------------------------------------------------------------------------------------

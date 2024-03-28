@@ -41,7 +41,8 @@ class DataSpec:
         at a certain time, only use if data_column_names has sufficiently many entries
     :param bool remove_flatline: if True check the beginning of the series for consecutive 0 values and only start
         indexing once they stop
-    :param str root_path: path where dataset file is stored, should generally be "./datasets/", see README
+    :param str dataset_root_path: path where dataset file is stored, should generally be "./datasets/", see README
+    "param str file_extension: data file extension
     """
 
     file_name: Union[str, Tuple[str, str, str]]
@@ -54,6 +55,9 @@ class DataSpec:
     split_by_category: bool = False
     remove_flatline: bool = False
     root_path: str = "./datasets/"
+    file_extension: str = ".csv"
+    sep: str = ","
+    decimal: str = '.'
 
     def full_file_path(
         self, file_extension: str = ".csv"

@@ -28,6 +28,7 @@ class ActionSpec:
     load_path: Optional[str] = None
     input_path: Optional[str] = None
     log_path: Optional[str] = "./"
+    output_path: Optional[str] = None
 
     # TODO directory and file path checks
     def check_validity(self) -> None:
@@ -40,7 +41,7 @@ class ActionSpec:
         if self.action in ["test", "infer"]:
             assert self.load_path is not None
         if self.action == "infer":
-            raise NotImplementedError()
             assert self.input_path is not None
+            assert self.output_path is not None
         if self.action == "hpo":
             raise NotImplementedError()

@@ -72,11 +72,10 @@ class ModelSpec:
     @classmethod
     def from_embedding_name(
         cls: SPEC,
-        *args,
         embedding: str,
         features_per_step: int,
         meta_features: Optional[int] = None,
-        embedding_args: Optional[dict] = None,
+        meta_cols: Optional[int] = 0,
         **kwargs,
     ) -> SPEC:
         """Accepts the same arguments as __init__, but builds the embedding from a name and optionally arguments"""
@@ -84,10 +83,9 @@ class ModelSpec:
             name=embedding,
             input_features=features_per_step,
             meta_features=meta_features,
-            embedding_args=embedding_args,
+            meta_cols=meta_cols,
         )
         return cls(
-            *args,
             features_per_step=features_per_step,
             meta_features=meta_features,
             embedding=embedding,
@@ -104,7 +102,7 @@ class TransformerSpec(ModelSpec):
     :param int nheads: number of attention heads
     :param int num_encoder_layers: number of encoder layers
     :param int num_decoder_layers: number of decoder layers
-    :param int dim_feedforward: dimension of the feedforward layer after attention
+    :param int d_feedforward: dimension of the feedforward layer after attention
     :param bool malformer: if True the slightly more customizable malformer variant is used
     :param int d_hidden: only used if malformer id True, forces decoder output to given dimension instead of d_model
     """
@@ -114,7 +112,7 @@ class TransformerSpec(ModelSpec):
     nheads: int = 1
     num_encoder_layers: int = 1
     num_decoder_layers: int = 1
-    dim_feedforward: int = 96
+    d_feedforward: int = 96
     malformer: bool = False
     d_hidden: int = None
 

@@ -2,10 +2,13 @@ import os
 
 # from random import randrange
 from typing import Optional, Tuple
+from pathlib import Path
 
 import torch
+import pandas as pd
 
-from .models.model_framework import ModelFramework
+from .models.model_framework import ReCycleForecastModel
+from .data.data_cleaner import clean_dataframe
 
 # TODO output visualization to files in the log dir
 # from .visualisation import (
@@ -50,10 +53,10 @@ def run_action(
         )
 
         # TODO don't call this a run, we have a generic forecast model wrapper around a torch or other model
-        run = ModelFramework(model_spec, dataset_spec)
+        run = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
         run.model.load_state_dict(state_dict=state_dict)
     else:
-        run = ModelFramework(model_spec, dataset_spec)
+        run = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
 
     if action_spec.action == "train":
         train_loss, valid_loss, best_loss = run.train_model(train_spec)
@@ -61,7 +64,7 @@ def run_action(
         # TODO generate model file names, such that models are not accidentally overwritten
         # set upt save location
         os.makedirs(action_spec.save_path, exist_ok=True)
-        save_file = action_spec.save_path / (
+        save_file = action_spec.save_path / Path(
             "_".join([model_spec.model_name, dataset_spec.data_spec.file_name]) + ".pt"
         )
 
@@ -75,7 +78,7 @@ def run_action(
         #     plot_losses(train_loss, valid_loss)
 
     elif action_spec.action == "test":
-        logger.info("Evaluating test set")
+        logger.info("Evaluating on test set")
         run.mode("test")
         if model_spec.quantiles is not None:
             print(f"Quantiles: {train_spec.loss.get_quantile_values()}")
@@ -103,8 +106,25 @@ def run_action(
         print(rhp_summary)
 
     elif action_spec.action == "infer":
-        raise
+        # load input data from file
+        input_df = pd.read_csv(action_spec.input_path)
+        input_df, data_column_names = clean_dataframe(
+            df=input_df, data_spec=dataset_spec.data_spec
+        )
+
+        pred, input_reference, output_reference = run.predict(
+            input_df, action_spec.output_path
+        )
+        pred_df = pd.DataFrame(pred.numpy())
+        pred_df.to_csv(action_spec.output_path)
+
+        return (
+            pred,
+            # pred_df,
+        )
+
     elif action_spec.action == "hpo":
+        raise
         train_loss, valid_loss, best_loss = run.train_model(train_spec)
 
         return best_loss, run.datasets

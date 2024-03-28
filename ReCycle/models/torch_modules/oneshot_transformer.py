@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class OneshotTransformer(ReCycleTorchModel):
     def __init__(self, model_spec: TransformerSpec) -> None:
         super(OneshotTransformer, self).__init__(model_spec=model_spec)
-        self.d_hid = model_spec.d_hidden or model_spec.dim_feedforward
+        self.d_hid = model_spec.d_hidden or model_spec.d_feedforward
 
         # Adjust for number of heads
         self.d_model *= model_spec.nheads
@@ -26,7 +26,7 @@ class OneshotTransformer(ReCycleTorchModel):
                 nhead=model_spec.nheads,
                 num_encoder_layers=model_spec.num_encoder_layers,
                 num_decoder_layers=model_spec.num_decoder_layers,
-                dim_feedforward=model_spec.dim_feedforward,
+                dim_feedforward=model_spec.d_feedforward,
                 dropout=model_spec.dropout,
                 batch_first=True,
                 device=self.device,
@@ -35,7 +35,7 @@ class OneshotTransformer(ReCycleTorchModel):
             encoder_layers = nn.TransformerEncoderLayer(
                 d_model=self.d_model,
                 nhead=model_spec.nheads,
-                dim_feedforward=self.d_hid,
+                d_feedforward=self.d_hid,
                 dropout=model_spec.dropout,
                 batch_first=True,
                 device=self.device,
@@ -46,7 +46,7 @@ class OneshotTransformer(ReCycleTorchModel):
             decoder_layers = nn.TransformerDecoderLayer(
                 d_model=self.d_model,
                 nhead=model_spec.nheads,
-                dim_feedforward=model_spec.dim_feedforward,
+                d_feedforward=model_spec.d_feedforward,
                 dropout=model_spec.dropout,
                 batch_first=True,
                 device=self.device,
@@ -109,7 +109,9 @@ class OneshotTransformer(ReCycleTorchModel):
         self,
         input_sequence: Tensor,
         batch_size: int,
+        input_day_metadata: Optional[Tensor] = None,
         input_metadata: Optional[Tensor] = None,
+        decoder_day_metadata: Optional[Tensor] = None,
         decoder_metadata: Optional[Tensor] = None,
         forecast_rhp: Optional[Tensor] = None,
         reference: Optional[Tensor] = None,
@@ -118,7 +120,12 @@ class OneshotTransformer(ReCycleTorchModel):
         #     forecast_rhp = None
 
         decoder_input = self._init_decoder_input(batch_size, forecast_rhp)
-        decoder_input = self.embedding(decoder_input, decoder_metadata)
+        if decoder_metadata is None:
+            decoder_input = self.embedding(decoder_input, decoder_day_metadata)
+        else:
+            decoder_input = self.embedding(
+                decoder_input, decoder_day_metadata, decoder_metadata
+            )
 
         result = self.process(input_sequence, decoder_input)
         return result
