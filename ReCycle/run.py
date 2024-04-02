@@ -3,6 +3,7 @@ import os
 # from random import randrange
 from typing import Optional, Tuple
 from pathlib import Path
+# import dataclasses
 
 import torch
 import pandas as pd
@@ -108,6 +109,8 @@ def run_action(
     elif action_spec.action == "infer":
         # load input data from file
         input_df = pd.read_csv(action_spec.input_path)
+
+        # input_spec = dataclasses.replace(dataset_spec.data_spec)
         input_df, data_column_names = clean_dataframe(
             df=input_df, data_spec=dataset_spec.data_spec
         )

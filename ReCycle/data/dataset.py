@@ -118,26 +118,27 @@ class ResidualDataset(Dataset):
         )
 
         # generate naive error estimate
-        category_naive_mae = []
-        for start, category in zip(self.start_indices, self.unnormalized_data):
-            scale = 0
-            valid_data = category[start + self.rhp_window : -1]
-            for f in range(self.forecast_window):
-                # Using some reshuffling the MAE for each day in each forecast window with respect to the last known
-                # day can be calculated
-                naive_forecast = valid_data[
-                    self.historic_window - 1 : -self.forecast_window
-                ]
-                reference = valid_data[
-                    self.historic_window + f : f + 1 - self.forecast_window
-                ]
-                if f + 1 == self.forecast_window:
-                    reference = valid_data[self.historic_window + f :]
-                loss = l1_loss(naive_forecast, reference)
-                scale += loss
-            category_naive_mae.append(scale / self.forecast_window)
+        if self.forecast_window > 0:
+            category_naive_mae = []
+            for start, category in zip(self.start_indices, self.unnormalized_data):
+                scale = 0
+                valid_data = category[start + self.rhp_window : -1]
+                for f in range(self.forecast_window):
+                    # Using some reshuffling the MAE for each day in each forecast window with respect to the last known
+                    # day can be calculated
+                    naive_forecast = valid_data[
+                        self.historic_window - 1 : -self.forecast_window
+                    ]
+                    reference = valid_data[
+                        self.historic_window + f : f + 1 - self.forecast_window
+                    ]
+                    if f + 1 == self.forecast_window:
+                        reference = valid_data[self.historic_window + f :]
+                    loss = l1_loss(naive_forecast, reference)
+                    scale += loss
+                category_naive_mae.append(scale / self.forecast_window)
 
-        self.category_naive_mae = torch.tensor(category_naive_mae)
+            self.category_naive_mae = torch.tensor(category_naive_mae)
 
         # derive residual norm, not used anymore
         # self.residual_norm = residual_normalizer(self.normalized_data - self.rhp_data.get_local_rhp())
@@ -172,9 +173,10 @@ class ResidualDataset(Dataset):
         self.cumulative_samples = self.cumulative_samples.to(
             *args, device=self.device, **kwargs
         )
-        self.category_naive_mae = self.category_naive_mae.to(
-            *args, device=device, **kwargs
-        )
+        if self.forecast_window > 0:
+            self.category_naive_mae = self.category_naive_mae.to(
+                *args, device=device, **kwargs
+            )
 
         # Objects that only need to transfer their members
         self.rhp_data.to(*args, device=self.device, **kwargs)

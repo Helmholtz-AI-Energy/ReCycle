@@ -1,3 +1,5 @@
+import dataclasses
+
 import pandas as pd
 import torch
 from torch import Tensor
@@ -153,15 +155,15 @@ class ReCycleForecastModel:
         If "raw":
 
         """
-        # TODO check this works the intended way
-        # TODO name the hard coded indices
-        # self.mode(dataset_name)
         self.mode = "test"
-        # dataset = self.dataset()
-        # idx = idx or randrange(0, len(dataset))
-        # print(idx)
-        dataset = type(self.dataset())(data=input_df, dataset_spec=self.dataset_spec)
-        sample = dataset[-1]
+        inputset_spec = dataclasses.replace(self.dataset_spec)
+        inputset_spec.forecast_window = 0
+        inputset_spec.reduce = None
+        dataset = type(self.dataset())(data=input_df, dataset_spec=inputset_spec)
+        loader = DataLoader(dataset, batch_size=1, drop_last=False, shuffle=False)
+        # TODO pick last sample in loader
+        for sample in loader:
+            pass
 
         self.model.eval()
         with torch.no_grad():
