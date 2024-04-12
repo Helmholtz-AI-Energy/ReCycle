@@ -1,5 +1,6 @@
 from typing import List, Optional, Type, TypeVar, Union, Tuple
 import torch
+from pathlib import Path
 
 from dataclasses import dataclass
 from ..data.normalizer import Normalizer, MinMax
@@ -64,7 +65,7 @@ class DataSpec:
     ) -> Union[str, Tuple[str, str, str]]:
         # if type(self.file_name) == str:
         if isinstance(self.file_name, str):
-            return self.root_path + self.file_name + file_extension
+            return self.root_path / Path(self.file_name + file_extension)
         # elif type(self.file_name) == Tuple[str, str, str]:
         elif isinstance(self.file_name, Tuple):
             assert len(self.file_name) == 3

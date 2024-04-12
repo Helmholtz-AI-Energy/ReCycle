@@ -1,3 +1,4 @@
+from pathlib import Path
 import torch
 import pandas as pd
 
@@ -359,7 +360,7 @@ class ResidualDataset(Dataset):
         file = dataset_spec.data_spec.full_file_path(
             file_extension=dataset_spec.data_spec.file_extension
         )
-        if isinstance(file, str):
+        if isinstance(file, Path):
             full_data = pd.read_csv(
                 file,
                 sep=dataset_spec.data_spec.sep,
@@ -392,7 +393,7 @@ class ResidualDataset(Dataset):
                 targets.append(t)
             logger.info("Dataframes prepared")
         else:
-            raise TypeError(f"Invalid file specification: {file}")
+            raise TypeError(f"Invalid file specification: {file}. Expected a Path or list of three Paths")
 
         train_data, valid_data, tests_data = dataframes
         train_target, valid_target, tests_target = targets
