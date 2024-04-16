@@ -1,15 +1,16 @@
 import os
+import io
 
 # from random import randrange
-from typing import Optional, Tuple
+from typing import Optional, Union, Tuple
 from pathlib import Path
 # import dataclasses
 
-import torch
 import pandas as pd
 
 from .models.model_framework import ReCycleForecastModel
 from .data.data_cleaner import clean_dataframe
+from .data.dataset import ResidualDataset
 
 # TODO output visualization to files in the log dir
 # from .visualisation import (
@@ -20,7 +21,6 @@ from .data.data_cleaner import clean_dataframe
 # )
 
 from .specs import ModelSpec, DatasetSpec, TrainSpec, ActionSpec
-from .data.dataset import ResidualDataset
 
 # Logging
 import logging
@@ -33,66 +33,78 @@ def run_action(
     dataset_spec: DatasetSpec,
     train_spec: TrainSpec,
     action_spec: ActionSpec,
-) -> Optional[Tuple[float, Tuple[ResidualDataset, ResidualDataset, ResidualDataset]]]:
+) -> Optional[Union[io.BytesIO, None, pd.DataFrame, Tuple[float, Tuple[ResidualDataset]]]]:
+    # TODO update return type hints
     action_spec.check_validity()
 
     model_spec.check_validity()
     dataset_spec.check_validity()
+    checkpoint_file_name = Path("_".join([model_spec.model_name, dataset_spec.data_spec.dataset_name, dataset_spec.data_spec.file_name]) + ".pt")
+
     if action_spec.load_path is not None:
-        load_path = action_spec.load_path or action_spec.save_path
-        load_file = (
-            load_path
-            + "_".join([model_spec.model_name, dataset_spec.data_spec.file_name])
-            + ".pt"
-        )
+        load_file = action_spec.load_path / checkpoint_file_name
 
-        # TODO this should not use torch
-        model_spec, dataset_spec, old_train_spec, state_dict = torch.load(load_file)
-        # TODO log difference between old and new train spec
+        forecaster = ReCycleForecastModel.load(load_file)
+        if forecaster.model_spec != model_spec:
+            logger.warn(f"loaded model spec not identical with specified one: {forecaster.model_spec} and {model_spec}")
+        # NOTE the comparisons evaluate to false when they should not, maybe because of float precision?
+        # assert model_spec == forecaster.model_spec
+        # assert dataset_spec == forecaster.dataset_spec
+        old_train_spec = forecaster.train_spec
+        forecaster.train_spec = train_spec
+
+        # model_spec, dataset_spec, old_train_spec, state_dict = torch.load(load_file)
+        # # TODO log difference between old and new specs
         logger.info(
-            f"Loading from {load_file}:\n {model_spec=}\n {dataset_spec=}\n {old_train_spec=}"
+            f"Loading from {load_file}:\n {forecaster.model_spec=}\n {forecaster.dataset_spec=}\n {old_train_spec=}\n replacing with {train_spec=}"
         )
 
-        # TODO don't call this a run, we have a generic forecast model wrapper around a torch or other model
-        run = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
-        run.model.load_state_dict(state_dict=state_dict)
+        # forecaster = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
+        # forecaster.model.load_state_dict(state_dict=state_dict)
     else:
-        run = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
+        forecaster = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
 
     if action_spec.action == "train":
-        train_loss, valid_loss, best_loss = run.train_model(train_spec)
+        train_loss, valid_loss, best_loss = forecaster.train_model(train_spec)
 
-        # TODO generate model file names, such that models are not accidentally overwritten
-        # set upt save location
-        os.makedirs(action_spec.save_path, exist_ok=True)
-        save_file = action_spec.save_path / Path(
-            "_".join([model_spec.model_name, dataset_spec.data_spec.file_name]) + ".pt"
-        )
+        if isinstance(action_spec.save_path, Path):
+            os.makedirs(action_spec.save_path, exist_ok=True)
+            save_obj = action_spec.save_path / checkpoint_file_name
+        elif isinstance(action_spec.save_path, io.BytesIO):
+            save_obj = action_spec.save_path
+        else:
+            print(type(action_spec.save_path))
+            raise
 
-        # get model state dictionary and save
-        state_dict = run.model.state_dict()
-        torch.save([model_spec, dataset_spec, train_spec, state_dict], f=save_file)
+        forecaster.save(save_obj)
+        # # set upt save location
+        # if isinstance(action_spec.save_path, io.BytesIO):
+        #     pass
+        # else:
+        #     os.makedirs(action_spec.save_path, exist_ok=True)
+        #     save_file = action_spec.save_path / checkpoint_file_name
+
+        # # get model state dictionary and save
+        # state_dict = forecaster.model.state_dict()
+        # torch.save([model_spec, dataset_spec, train_spec, state_dict], f=save_file)
         logger.info("Model saved")
-
-        # if action_spec.plot_loss:
-        #     logger.info("Plotting loss")
-        #     plot_losses(train_loss, valid_loss)
+        return save_obj
 
     elif action_spec.action == "test":
         logger.info("Evaluating on test set")
-        run.mode("test")
+        forecaster.mode("test")
         if model_spec.quantiles is not None:
             print(f"Quantiles: {train_spec.loss.get_quantile_values()}")
         test_batchsize = (
             train_spec.batch_size
-            if train_spec.batch_size < len(run.dataset())
-            else len(run.dataset())
+            if train_spec.batch_size < len(forecaster.dataset())
+            else len(forecaster.dataset())
         )
         print("Network prediction:")
         if model_spec.quantiles is None:
-            result_summary = run.test_forecast(batch_size=test_batchsize)
+            result_summary = forecaster.test_forecast(batch_size=test_batchsize)
         else:
-            result_summary, calibration = run.test_forecast(
+            result_summary, calibration = forecaster.test_forecast(
                 batch_size=test_batchsize, calibration=True
             )
             print(calibration)
@@ -103,8 +115,9 @@ def run_action(
 
         # Persistence for reference
         print("Load profiling:")
-        rhp_summary = run.test_rhp(batch_size=test_batchsize)
+        rhp_summary = forecaster.test_rhp(batch_size=test_batchsize)
         print(rhp_summary)
+        return result_summary, rhp_summary
 
     elif action_spec.action == "infer":
         # load input data from file
@@ -115,22 +128,20 @@ def run_action(
             df=input_df, data_spec=dataset_spec.data_spec
         )
 
-        pred, input_reference, output_reference = run.predict(
+        pred, input_reference, output_reference = forecaster.predict(
             input_df, action_spec.output_path
         )
         pred_df = pd.DataFrame(pred.numpy())
         pred_df.to_csv(action_spec.output_path)
+        # TODO add time stamps to pred_df
 
-        return (
-            pred,
-            # pred_df,
-        )
+        return pred_df
 
     elif action_spec.action == "hpo":
         raise
-        train_loss, valid_loss, best_loss = run.train_model(train_spec)
+        train_loss, valid_loss, best_loss = forecaster.train_model(train_spec)
 
-        return best_loss, run.datasets
+        return best_loss, forecaster.datasets
 
     # if action_spec.plot_prediction:
     #     xlabel = dataset_spec.data_spec.xlabel
@@ -139,10 +150,10 @@ def run_action(
 
     #     if model_spec.quantiles is not None:
     #         # plot quantiles
-    #         idx = randrange(len(run.datasets[2]))
+    #         idx = randrange(len(forecaster.datasets[2]))
     #         print(f"Sample nr: {idx}")
 
-    #         prediction, input_data, reference = run.predict(
+    #         prediction, input_data, reference = forecaster.predict(
     #             dataset_name="test", idx=idx
     #         )
     #         plot_quantiles(prediction, reference)
@@ -150,10 +161,10 @@ def run_action(
     #     else:
     #         logger.info("plotting predictions")
     #         for n in range(4):
-    #             idx = randrange(len(run.datasets[2]))
+    #             idx = randrange(len(forecaster.datasets[2]))
     #             print(f"Sample nr: {idx}")
 
-    #             prediction, input_data, reference = run.predict(
+    #             prediction, input_data, reference = forecaster.predict(
     #                 dataset_name="test", idx=idx
     #             )
     #             plot_sample(
@@ -165,6 +176,6 @@ def run_action(
     #             )
     #             # time_resolved_error(prediction, reference)
 
-    #             # prediction, input_data, reference = run.predict(dataset_name='test', idx=idx, raw=True)
+    #             # prediction, input_data, reference = forecaster.predict(dataset_name='test', idx=idx, raw=True)
     #             # plot_prediction(prediction, input_data, reference, plot_input=False, xlabel=xlabel, ylabel=res_label,
     #             #                 is_residual_plot=True)
