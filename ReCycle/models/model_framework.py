@@ -14,6 +14,7 @@ from ..globals import predefined_models_dict
 from ..data.dataset import ResidualDataset
 from ..specs import ModelSpec, DatasetSpec, TrainSpec
 from ..specs.dataset_specs import ResidualDatasetSpec
+from ..data.data_cleaner import clean_dataframe
 
 # Profiling
 import cProfile
@@ -35,6 +36,7 @@ class ReCycleForecastModel:
         self.model_spec = model_spec
         self.model_name = model_spec.model_name
         self.train_spec = train_spec
+        self.train_spec.clean()
 
         assert isinstance(
             dataset_spec, ResidualDatasetSpec
@@ -72,41 +74,49 @@ class ReCycleForecastModel:
     def dataset(self) -> ResidualDataset:
         return self.datasets[self._mode]
 
-    def train_model(self, train_spec: TrainSpec):
+    def train_model(self, train_df: pd.DataFrame = None, valid_df: pd.DataFrame = None):
         """Train self.model on self.train_set for several epochs, also obtains the validation loss and returns both"""
         # define training method
-        train_spec.clean()
-        criterion = train_spec.loss
-        optimizer = train_spec.optimizer(
+        criterion = self.train_spec.loss
+        optimizer = self.train_spec.optimizer(
             self.model.parameters(),
-            lr=10**train_spec.log_learning_rate,
-            **train_spec.optimizer_args,
+            lr=10**self.train_spec.log_learning_rate,
+            **self.train_spec.optimizer_args,
         )
 
         # get datasets
-        train_set = self.datasets[0]
-        valid_set = self.datasets[1]
+        if train_df is None:
+            train_set = self.datasets[0]
+        else:
+            train_df = clean_dataframe(train_df)
+            train_set = ResidualDataset(data=train_df, dataset_spec=self.dataset_spec)
+
+        if valid_df is None:
+            valid_set = self.datasets[1]
+        else:
+            valid_df = clean_dataframe(valid_df)
+            valid_set = ResidualDataset(data=valid_df, dataset_spec=self.dataset_spec)
 
         train_dataloader = DataLoader(
-            train_set, batch_size=train_spec.batch_size, shuffle=True, drop_last=True
+            train_set, batch_size=self.train_spec.batch_size, shuffle=True, drop_last=True
         )
         valid_dataloader = DataLoader(
-            valid_set, batch_size=train_spec.batch_size, shuffle=True
+            valid_set, batch_size=self.train_spec.batch_size, shuffle=True
         )
         assert len(train_dataloader) > 0
         assert len(valid_dataloader) > 0
 
-        train_loss = torch.zeros(train_spec.epochs, len(train_dataloader))
-        valid_loss = torch.zeros(train_spec.epochs)
+        train_loss = torch.zeros(self.train_spec.epochs, len(train_dataloader))
+        valid_loss = torch.zeros(self.train_spec.epochs)
 
-        early_stopping = EarlyStopping(patience=train_spec.patience)
+        early_stopping = EarlyStopping(patience=self.train_spec.patience)
 
-        if train_spec.profiling:
+        if self.train_spec.profiling:
             # profiling
             pr = cProfile.Profile()
             pr.enable()
 
-        for n in range(train_spec.epochs):
+        for n in range(self.train_spec.epochs):
             if n % 10 == 0:
                 logger.info(f"Starting epoch {n+1}")
 
@@ -129,7 +139,7 @@ class ReCycleForecastModel:
         self.model.load_state_dict(early_stopping.best_state_dict)
         best_loss = early_stopping.best_loss
 
-        if train_spec.profiling:
+        if self.train_spec.profiling:
             pr.disable()
             s = io.StringIO()
             sortby = "tottime"  # SortKey.CUMULATIVE
@@ -142,9 +152,7 @@ class ReCycleForecastModel:
     def predict(
         self,
         input_df,
-        # idx: int or None = None,
-        # dataset_name: str = "test",
-        output_path,
+        output_path: Path = None,
         denormalize: bool = True,
         raw: bool = False,
     ) -> (Tensor, Tensor, Tensor):
@@ -163,7 +171,7 @@ class ReCycleForecastModel:
         inputset_spec.reduce = None
         dataset = type(self.dataset())(data=input_df, dataset_spec=inputset_spec)
         loader = DataLoader(dataset, batch_size=1, drop_last=False, shuffle=False)
-        # TODO pick last sample in loader
+        # TODO pick last sample in loader better
         for sample in loader:
             pass
 
@@ -326,7 +334,7 @@ class ReCycleForecastModel:
         return self
 
     def fit(self):
-        return self.train_model(self.train_spec)
+        return self.train_model()
 
 
 #    def dropout_test_forecast(self, sample_nr: Optional[int] = 50) -> (Tensor, Tensor, Tensor):
