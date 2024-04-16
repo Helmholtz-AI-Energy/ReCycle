@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from typing import Optional
 
@@ -24,11 +25,11 @@ class ActionSpec:
 
     action: str = "train"
 
-    save_path: Optional[str] = "./saved_models/"
-    load_path: Optional[str] = None
-    input_path: Optional[str] = None
-    log_path: Optional[str] = "./"
-    output_path: Optional[str] = None
+    save_path: Optional[Path] = Path("./saved_models/")
+    load_path: Optional[Path] = None
+    input_path: Optional[Path] = None
+    log_path: Optional[Path] = "./"
+    output_path: Optional[Path] = None
 
     # TODO directory and file path checks
     def check_validity(self) -> None:
