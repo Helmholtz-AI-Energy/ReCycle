@@ -1,4 +1,5 @@
 from typing import Optional, Type, Union, Tuple, List
+from pathlib import Path
 import torch
 from torch import Tensor
 from torch.nn.modules.loss import _Loss, L1Loss
@@ -55,7 +56,7 @@ def configure_run(
     dataset_time_col: Optional[str] = None,
     dataset_data_cols: Optional[List[str]] = None,
     dataset_metadata_cols: Optional[List[str]] = None,
-    dataset_root_path: str = "./datasets/",
+    dataset_root_path: Path = Path("./datasets/"),
     dataset_country_code: Optional[str] = None,
     universal_holidays: bool = True,
     downsample_rate: Optional[int] = None,
@@ -69,10 +70,10 @@ def configure_run(
     optimizer: Type[Optimizer] = Adam,
     optimizer_args: Optional[dict] = None,
     profiling: bool = False,
-    save_checkpoint_path: str = "./saved_models/",
+    save_checkpoint_path: Path = Path("./saved_models/"),
     load_checkpoint: Optional[str] = None,
-    input_path: Optional[str] = None,
-    output_path: Optional[str] = None,
+    input_path: Optional[Path] = None,
+    output_path: Optional[Path] = None,
     # model parameters
     model_args={},
 ) -> (ModelSpec, DatasetSpec, TrainSpec, ActionSpec):
