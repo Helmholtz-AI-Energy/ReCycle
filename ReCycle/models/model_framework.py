@@ -1,4 +1,6 @@
+from typing import Union
 import dataclasses
+from pathlib import Path
 
 import pandas as pd
 import torch
@@ -299,20 +301,24 @@ class ReCycleForecastModel:
 
         return results.mean().to_frame().T
 
-    def save(self, save_path: str) -> None:
+    def save(self, save_obj: Union[Path, io.BytesIO]) -> None:
         """Save trained model to [save_path]"""
-        hyperparameters = self.args
+        # hyperparameters = self.args
+
         state_dict = self.model.state_dict()
 
-        torch.save([hyperparameters, state_dict], save_path)
+        # torch.save([hyperparameters, state_dict], save_obj)
+        torch.save([self.model_spec, self.dataset_spec, self.train_spec, state_dict], save_obj)
 
     @classmethod
-    def load(cls, load_path: str):
+    def load(cls, load_path: Union[Path, io.BytesIO]):
         """Load model saved with save_to-method"""
-        hyperparameters, state_dict = torch.load(load_path)
-        run = cls(**hyperparameters)
-        run.model.load_state_dict(state_dict)
-        return run
+        model_spec, dataset_spec, train_spec, state_dict = torch.load(load_path)
+        # run = cls(**hyperparameters)
+        # run.model.load_state_dict(state_dict)
+        model = cls(model_spec, dataset_spec, train_spec)
+        model.model.load_state_dict(state_dict=state_dict)
+        return model
 
     def reset(self) -> "ReCycleForecastModel":
         # TODO reset parameters
