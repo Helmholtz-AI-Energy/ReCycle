@@ -53,19 +53,16 @@ def run_action(
         old_train_spec = forecaster.train_spec
         forecaster.train_spec = train_spec
 
-        # model_spec, dataset_spec, old_train_spec, state_dict = torch.load(load_file)
         # # TODO log difference between old and new specs
         logger.info(
             f"Loading from {load_file}:\n {forecaster.model_spec=}\n {forecaster.dataset_spec=}\n {old_train_spec=}\n replacing with {train_spec=}"
         )
 
-        # forecaster = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
-        # forecaster.model.load_state_dict(state_dict=state_dict)
     else:
         forecaster = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
 
     if action_spec.action == "train":
-        train_loss, valid_loss, best_loss = forecaster.train_model(train_spec)
+        train_loss, valid_loss, best_loss = forecaster.train_model()
 
         if isinstance(action_spec.save_path, Path):
             os.makedirs(action_spec.save_path, exist_ok=True)
@@ -73,20 +70,10 @@ def run_action(
         elif isinstance(action_spec.save_path, io.BytesIO):
             save_obj = action_spec.save_path
         else:
-            print(type(action_spec.save_path))
-            raise
+            raise ValueError("Unexpected type of object to save checkpoint to.")
 
         forecaster.save(save_obj)
-        # # set upt save location
-        # if isinstance(action_spec.save_path, io.BytesIO):
-        #     pass
-        # else:
-        #     os.makedirs(action_spec.save_path, exist_ok=True)
-        #     save_file = action_spec.save_path / checkpoint_file_name
 
-        # # get model state dictionary and save
-        # state_dict = forecaster.model.state_dict()
-        # torch.save([model_spec, dataset_spec, train_spec, state_dict], f=save_file)
         logger.info("Model saved")
         return save_obj
 
@@ -108,8 +95,6 @@ def run_action(
                 batch_size=test_batchsize, calibration=True
             )
             print(calibration)
-            # quantiles = train_spec.loss.get_quantile_values()
-            # plot_calibration(calibration, quantiles)
 
         print(result_summary)
 
@@ -139,7 +124,7 @@ def run_action(
 
     elif action_spec.action == "hpo":
         raise
-        train_loss, valid_loss, best_loss = forecaster.train_model(train_spec)
+        train_loss, valid_loss, best_loss = forecaster.train_model()
 
         return best_loss, forecaster.datasets
 
