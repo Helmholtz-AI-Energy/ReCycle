@@ -1,4 +1,4 @@
-import tempfile
+from pathlib import Path
 
 import torch
 import pandas as pd
@@ -8,7 +8,7 @@ from ReCycle import run
 from ReCycle.specs import configure_run
 
 
-data_root = "/".join(ReCycle.__path__[0].split("/")[:-1]) + "/data/"
+data_root = Path("/".join(ReCycle.__path__[0].split("/")[:-1]) + "/data/")
 data_filename = "anonymized_dataset"
 
 default_params = {
@@ -93,84 +93,79 @@ def test_entsoe_de_dataset():
             len(dataset.dataframe)
             == (len(dataset) + dataset.total_window + dataset.rhp_window) * 24
         )
-        print()
 
 
-def test_training():
-    with tempfile.TemporaryDirectory() as save_checkpoint_path:
-        params = {}
-        params.update(default_params)
-        params["model_args"] = transformer_params
-        params["action"] = "train"
-        params["save_checkpoint_path"] = save_checkpoint_path
+def test_training(tmp_path):
+    params = {}
+    params.update(default_params)
+    params["model_args"] = transformer_params
+    params["action"] = "train"
+    params["save_checkpoint_path"] = tmp_path
 
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
 
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
-        del params
-
-
-def test_testing():
-    with tempfile.TemporaryDirectory() as save_checkpoint_path:
-        params = {}
-        params.update(default_params)
-        params["model_args"] = transformer_params
-        params["action"] = "train"
-        params["save_checkpoint_path"] = save_checkpoint_path
-
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
-
-        params["action"] = "test"
-        params["load_checkpoint"] = save_checkpoint_path + "/"
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
+    del params
 
 
-def test_entsoe_de():
-    return
-    with tempfile.TemporaryDirectory() as save_checkpoint_path:
-        params = {}
-        params.update(default_params)
-        params["dataset_root_path"] = "~/Data/ENTSO-E_WesterEuropePowerConsumption/"
-        params["dataset_name"] = "entsoe_de"
-        params["model_args"] = transformer_params
-        params["action"] = "train"
-        params["save_checkpoint_path"] = save_checkpoint_path
+def test_testing(tmp_path):
+    params = {}
+    params.update(default_params)
+    params["model_args"] = transformer_params
+    params["action"] = "train"
+    params["save_checkpoint_path"] = tmp_path
 
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
 
-        params["action"] = "test"
-        params["load_checkpoint"] = save_checkpoint_path + "/"
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
-    raise
+    params["action"] = "test"
+    params["load_checkpoint"] = tmp_path
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
+
+
+def test_entsoe_de(tmp_path):
+    params = {}
+    params.update(default_params)
+    params["dataset_root_path"] = "~/Data/ENTSO-E_WesterEuropePowerConsumption/"
+    params["dataset_name"] = "entsoe_de"
+    params["model_args"] = transformer_params
+    params["action"] = "train"
+    params["save_checkpoint_path"] = tmp_path
+    params["epochs"] = 200
+
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
+
+    params["action"] = "test"
+    params["load_checkpoint"] = tmp_path
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
 
 
 # def test_uci_pt():
@@ -203,23 +198,22 @@ def test_entsoe_de():
 #         )
 
 
-def test_mlp():
-    with tempfile.TemporaryDirectory() as save_checkpoint_path:
-        params = {}
-        params.update(default_params)
-        params["model_name"] = "MLP"
-        params["model_args"] = mlp_params
-        params["action"] = "train"
-        params["save_checkpoint_path"] = save_checkpoint_path
+def test_mlp(tmp_path):
+    params = {}
+    params.update(default_params)
+    params["model_name"] = "MLP"
+    params["model_args"] = mlp_params
+    params["action"] = "train"
+    params["save_checkpoint_path"] = tmp_path
 
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
 
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
 
 
 def test_dataset_from_dataframe():
@@ -256,75 +250,91 @@ def test_dataset_from_dataframe():
             input2 = sample2[0]
             assert torch.all(torch.eq(input1, input2))
 
-    # assert csv_datasets == df_datasets
+
+def test_inference(tmp_path):
+    params = {}
+    params.update(default_params)
+    params["model_args"] = transformer_params
+    params["action"] = "train"
+    params["save_checkpoint_path"] = tmp_path
+
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
+
+    params["action"] = "infer"
+    params["load_checkpoint"] = tmp_path
+    params["input_path"] = data_root / Path(data_filename + ".csv")
+    params["output_path"] = tmp_path / Path("out.csv")
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
 
 
-def test_inference():
-    with tempfile.TemporaryDirectory() as save_checkpoint_path:
-        params = {}
-        params.update(default_params)
-        params["model_args"] = transformer_params
-        params["action"] = "train"
-        params["save_checkpoint_path"] = save_checkpoint_path
+def test_metadata_mlp(tmp_path):
+    params = {}
+    params.update(default_params)
+    params["model_name"] = "MLP"
+    params["model_args"] = mlp_params
+    params["action"] = "train"
+    params["save_checkpoint_path"] = tmp_path
+    params["dataset_metadata_cols"] = ["Metadata_1", "Metadata_2", "Metadata_3"]
 
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
 
-        params["action"] = "infer"
-        params["load_checkpoint"] = save_checkpoint_path + "/"
-        params["input_path"] = data_root + data_filename + ".csv"
-        params["output_path"] = save_checkpoint_path + "/out.csv"
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
 
 
-def test_metadata_mlp():
-    with tempfile.TemporaryDirectory() as save_checkpoint_path:
-        params = {}
-        params.update(default_params)
-        params["model_name"] = "MLP"
-        params["model_args"] = mlp_params
-        params["action"] = "train"
-        params["save_checkpoint_path"] = save_checkpoint_path
-        params["dataset_metadata_cols"] = ["Metadata_1", "Metadata_2", "Metadata_3"]
+def test_metadata_transformer(tmp_path):
+    params = {}
+    params.update(default_params)
+    params["model_args"] = transformer_params
+    params["action"] = "train"
+    params["save_checkpoint_path"] = tmp_path
+    params["dataset_metadata_cols"] = ["Metadata_1", "Metadata_2", "Metadata_3"]
 
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
 
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
+    run.run_action(
+        model_spec=model_spec,
+        dataset_spec=dataset_spec,
+        train_spec=train_spec,
+        action_spec=action_spec,
+    )
 
 
-def test_metadata_transformer():
-    with tempfile.TemporaryDirectory() as save_checkpoint_path:
-        params = {}
-        params.update(default_params)
-        params["model_args"] = transformer_params
-        params["action"] = "train"
-        params["save_checkpoint_path"] = save_checkpoint_path
-        params["dataset_metadata_cols"] = ["Metadata_1", "Metadata_2", "Metadata_3"]
-
-        model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
-
-        run.run_action(
-            model_spec=model_spec,
-            dataset_spec=dataset_spec,
-            train_spec=train_spec,
-            action_spec=action_spec,
-        )
+# def test_serialization(tmp_path):
+#     """Test serializtion of the model after training without writing it to a file. And training and inference by passing a dataframe directly"""
+#     # configure run
+#     params = {}
+#     params.update(default_params)
+#     params["model_args"] = transformer_params
+#     params["action"] = "train"
+#     params["save_checkpoint_path"] = tmp_path
+#     params["dataset_metadata_cols"] = ["Metadata_1", "Metadata_2", "Metadata_3"]
+#
+#     model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+#
+#     # load data
+#     train_data =
+#     # train
+#     model_as_string = train()
+#     # check there was nothing written to disk
+#     # predict
+#     pred =
 
 
 # def test_quantiles_interface():
