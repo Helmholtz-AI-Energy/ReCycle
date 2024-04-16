@@ -56,6 +56,7 @@ class DataSpec:
     split_by_category: bool = False
     remove_flatline: bool = False
     root_path: str = "./datasets/"
+    dataset_name: str = "custom"
     file_extension: str = ".csv"
     sep: str = ","
     decimal: str = '.'
