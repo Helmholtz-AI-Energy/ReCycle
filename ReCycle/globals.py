@@ -16,10 +16,12 @@ entsoe_de = DataSpec(
     data_column_names=["load"],
     time_column_name="start",
     downsample_rate=4,
+    dataset_name="entsoe_de",
     # ylabel="Load [MW]",
 )
 
 entsoe_full = DataSpec(
+    dataset_name="entsoe_full",
     file_name="entsoe_full",
     country_code=None,
     universal_holidays=False,
@@ -44,6 +46,7 @@ entsoe_full = DataSpec(
 )
 
 water = DataSpec(
+    dataset_name="water",
     file_name="water",
     country_code="de",
     data_column_names=["Consumption"],
@@ -52,6 +55,7 @@ water = DataSpec(
 )
 
 uci_pt = DataSpec(
+    dataset_name="uci_pt",
     file_name="LD2011_2014",
     country_code="pt",
     data_column_names=["MT_320"],
@@ -65,6 +69,7 @@ uci_pt = DataSpec(
 )
 
 informer_etth1 = DataSpec(
+    dataset_name="informer_etth1",
     file_name="etth1",
     country_code="cn",
     data_column_names=["OT"],
@@ -73,6 +78,7 @@ informer_etth1 = DataSpec(
 )
 
 informer_etth2 = DataSpec(
+    dataset_name="informer_etth2",
     file_name="etth2",
     country_code="cn",
     data_column_names=["OT"],
@@ -81,6 +87,7 @@ informer_etth2 = DataSpec(
 )
 
 minigrid = DataSpec(
+    dataset_name="minigrid",
     file_name="minigrid",
     country_code="de",
     data_column_names=["Load"],
@@ -90,6 +97,7 @@ minigrid = DataSpec(
 )
 
 solar = DataSpec(
+    dataset_name="solar",
     file_name="solar",
     country_code="us",
     data_column_names=["solar_mw"],
@@ -97,6 +105,7 @@ solar = DataSpec(
 )
 
 prices = DataSpec(
+    dataset_name="prices",
     file_name="prices",
     country_code="de",
     data_column_names=["Day-ahead Price [EUR/MWh]"],
@@ -105,6 +114,7 @@ prices = DataSpec(
 )
 
 traffic = DataSpec(
+    dataset_name="traffic",
     file_name="traffic_new",
     country_code="us",
     data_column_names=["VMT (Veh-Miles)"],
@@ -112,6 +122,7 @@ traffic = DataSpec(
 )
 
 former_traffic = DataSpec(
+    dataset_name="former_traffic",
     file_name="traffic_old",
     country_code="us",
     data_column_names=["OT"],
