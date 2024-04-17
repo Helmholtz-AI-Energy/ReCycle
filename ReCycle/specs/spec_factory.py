@@ -135,9 +135,7 @@ def configure_run(
         data_spec.root_path = dataset_root_path
         # TODO update the other stuff if necessary
     else:
-        assert (
-            dataset_file_path is not None and dataset_time_col is not None
-        ), "Either dataset_name or file_name and time_column_name must be specified"
+        logger.warn("To supply the model with a dataset in advance, dataset_file_path and time_column_name must be set.")
         data_spec = DataSpec(
             file_name=dataset_file_path,
             time_column_name=dataset_time_col,
