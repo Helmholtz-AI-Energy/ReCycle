@@ -42,9 +42,12 @@ class ReCycleForecastModel:
             dataset_spec, ResidualDatasetSpec
         ), "ResidualDataset requires ResidualDatasetSpec"
         dataset_spec.check_validity()
-        self.datasets = ResidualDataset.from_csv(dataset_spec=dataset_spec)
         self.dataset_spec = dataset_spec
         self.dataset_name = dataset_spec.data_spec.file_name
+        if dataset_spec.data_spec.file_name is not None:
+            self.datasets = ResidualDataset.from_csv(dataset_spec=dataset_spec)
+        else:
+            self.datasets = [None, None, None]
 
         # Define run mode, 0 is train, 1 is eval 2 is testing. Used for gradient tracking and dataset selection
         self._mode = 0
@@ -88,14 +91,16 @@ class ReCycleForecastModel:
         if train_df is None:
             train_set = self.datasets[0]
         else:
-            train_df = clean_dataframe(train_df)
+            train_df = clean_dataframe(df=train_df, data_spec=self.dataset_spec.data_spec)
             train_set = ResidualDataset(data=train_df, dataset_spec=self.dataset_spec)
 
         if valid_df is None:
             valid_set = self.datasets[1]
         else:
-            valid_df = clean_dataframe(valid_df)
+            valid_df = clean_dataframe(df=valid_df, data_spec=self.dataset_spec.data_spec)
             valid_set = ResidualDataset(data=valid_df, dataset_spec=self.dataset_spec)
+        if train_set is None or valid_set is None:
+            raise ValueError("Missing either training or validation data.")
 
         train_dataloader = DataLoader(
             train_set, batch_size=self.train_spec.batch_size, shuffle=True, drop_last=True
@@ -152,7 +157,6 @@ class ReCycleForecastModel:
     def predict(
         self,
         input_df,
-        output_path: Path = None,
         denormalize: bool = True,
         raw: bool = False,
     ) -> (Tensor, Tensor, Tensor):
@@ -169,7 +173,8 @@ class ReCycleForecastModel:
         inputset_spec = dataclasses.replace(self.dataset_spec)
         inputset_spec.forecast_window = 0
         inputset_spec.reduce = None
-        dataset = type(self.dataset())(data=input_df, dataset_spec=inputset_spec)
+        input_df = clean_dataframe(input_df, inputset_spec.data_spec)
+        dataset = ResidualDataset(data=input_df, dataset_spec=inputset_spec)
         loader = DataLoader(dataset, batch_size=1, drop_last=False, shuffle=False)
         # TODO pick last sample in loader better
         for sample in loader:
@@ -192,10 +197,10 @@ class ReCycleForecastModel:
             if raw:
                 #    prediction = dataset.norm.revert_normalization(prediction, cat_data)
                 output_rhp = dataset.norm.revert_normalization(sample[3], cat_data)
-            input_reference = dataset.norm.revert_normalization(sample[0], cat_data)
+            # input_reference = dataset.norm.revert_normalization(sample[0], cat_data)
             output_reference = dataset.norm.revert_normalization(sample[-1], cat_data)
         else:
-            input_reference = sample[0]
+            # input_reference = sample[0]
             output_reference = sample[-1]
             output_rhp = sample[3]
 
@@ -207,10 +212,11 @@ class ReCycleForecastModel:
                 )
             prediction -= output_rhp
 
-        return prediction, input_reference, output_reference
+        # return prediction, input_reference, output_reference
+        return pd.DataFrame(prediction.numpy())
 
     def test_forecast(
-        self, batch_size: int = 128, calibration: bool = False
+            self, test_df: pd.DataFrame = None, batch_size: int = 128, calibration: bool = False
     ) -> pd.DataFrame:
         if calibration:
             assert (
@@ -219,7 +225,11 @@ class ReCycleForecastModel:
             total_calibration = torch.empty(0)
 
         self.mode("test")
-        dataset = self.dataset()
+        if test_df is None:
+            dataset = self.dataset()
+        else:
+            test_df = clean_dataframe(df=test_df, data_spec=self.dataset_spec.data_spec)
+            dataset = ResidualDataset(data=test_df, dataset_spec=self.dataset_spec)
         if batch_size > len(dataset):
             batch_size = len(dataset)
         loader = DataLoader(dataset, batch_size=batch_size, drop_last=True)
@@ -321,6 +331,8 @@ class ReCycleForecastModel:
     @classmethod
     def load(cls, load_path: Union[Path, io.BytesIO]):
         """Load model saved with save_to-method"""
+        if isinstance(load_path, io.BytesIO):
+            load_path.seek(0)
         model_spec, dataset_spec, train_spec, state_dict = torch.load(load_path)
         # run = cls(**hyperparameters)
         # run.model.load_state_dict(state_dict)
