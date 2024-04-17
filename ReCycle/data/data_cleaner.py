@@ -33,7 +33,7 @@ def clean_dataframe(df: DataFrame, data_spec: "DataSpec") -> (DataFrame, List[st
     # df.sort_values(time_column_name, ascending=True, inplace=True)
 
     # Remove nuisance columns
-    if type(data_spec.data_column_names) is str:
+    if isinstance(data_spec.data_column_names, str):
         data_column_names = [data_column_names]
     valid = (
         data_column_names
@@ -74,7 +74,7 @@ def clean_dataframe(df: DataFrame, data_spec: "DataSpec") -> (DataFrame, List[st
 
     if data_spec.universal_holidays:
         if data_spec.country_code is None:
-            logger.warning("No country specified, defaulting to Germany")
+            logger.warning("No country specified, defaulting to Germany. Country is required for holiday metadata.")
             country = "de"
         else:
             country = data_spec.country_code
@@ -104,4 +104,4 @@ def clean_dataframe(df: DataFrame, data_spec: "DataSpec") -> (DataFrame, List[st
         nan_list = df.isnull().stack()[lambda x: x].index.tolist()
         for index, column in nan_list:
             df.loc[index, column] = df.loc[index - 1 : index + 2, column].mean()
-    return df, data_column_names
+    return df
