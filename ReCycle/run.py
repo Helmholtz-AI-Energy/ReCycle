@@ -9,7 +9,6 @@ from pathlib import Path
 import pandas as pd
 
 from .models.model_framework import ReCycleForecastModel
-from .data.data_cleaner import clean_dataframe
 from .data.dataset import ResidualDataset
 
 # TODO output visualization to files in the log dir
@@ -108,15 +107,7 @@ def run_action(
         # load input data from file
         input_df = pd.read_csv(action_spec.input_path)
 
-        # input_spec = dataclasses.replace(dataset_spec.data_spec)
-        input_df, data_column_names = clean_dataframe(
-            df=input_df, data_spec=dataset_spec.data_spec
-        )
-
-        pred, input_reference, output_reference = forecaster.predict(
-            input_df, action_spec.output_path
-        )
-        pred_df = pd.DataFrame(pred.numpy())
+        pred_df = forecaster.predict(input_df)
         pred_df.to_csv(action_spec.output_path)
         # TODO add time stamps to pred_df
 
