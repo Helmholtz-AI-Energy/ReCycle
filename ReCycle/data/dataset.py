@@ -314,12 +314,9 @@ class ResidualDataset(Dataset):
         dataset_spec: ResidualDatasetSpec,
     ) -> Tuple[SET, SET, SET]:
         if isinstance(data, DataFrame):
-            full_data, data_column_names = clean_dataframe(
+            full_data = clean_dataframe(
                 df=data, data_spec=dataset_spec.data_spec
             )
-            assert (
-                dataset_spec.data_spec.data_column_names == data_column_names
-            ), "Turns out it is pass by copy"
             logger.info("Dataframe prepared")
             dataframes, targets = cls.split_data(
                 full_data=full_data, dataset_spec=dataset_spec
@@ -331,9 +328,9 @@ class ResidualDataset(Dataset):
             dataframes = []
             targets = []
             for df in data:
-                d, t = clean_dataframe(df=df, data_spec=dataset_spec.data_spec)
+                d = clean_dataframe(df=df, data_spec=dataset_spec.data_spec)
                 dataframes.append(d)
-                targets.append(t)
+                targets.append(dataset_spec.data_spec.data_column_names)
             logger.info("Dataframes prepared")
         else:
             raise ValueError("Exepcts a DataFrame or list of three dataframes")
@@ -366,12 +363,9 @@ class ResidualDataset(Dataset):
                 sep=dataset_spec.data_spec.sep,
                 decimal=dataset_spec.data_spec.decimal,
             )
-            full_data, data_column_names = clean_dataframe(
+            full_data = clean_dataframe(
                 df=full_data, data_spec=dataset_spec.data_spec
             )
-            assert (
-                dataset_spec.data_spec.data_column_names == data_column_names
-            ), "Turns out it is pass by copy"
             logger.info("Dataframe prepared")
             dataframes, targets = cls.split_data(
                 full_data=full_data, dataset_spec=dataset_spec
@@ -388,9 +382,9 @@ class ResidualDataset(Dataset):
                     sep=dataset_spec.data_spec.sep,
                     decimal=dataset_spec.data_spec.decimal,
                 )
-                f, t = clean_dataframe(df=data, data_spec=dataset_spec.data_spec)
+                f = clean_dataframe(df=data, data_spec=dataset_spec.data_spec)
                 dataframes.append(f)
-                targets.append(t)
+                targets.append(dataset_spec.data_spec.data_column_names)
             logger.info("Dataframes prepared")
         else:
             raise TypeError(f"Invalid file specification: {file}. Expected a Path or list of three Paths")
