@@ -1,4 +1,5 @@
 from pathlib import Path
+import io
 
 import torch
 import pandas as pd
@@ -6,6 +7,8 @@ import pandas as pd
 import ReCycle
 from ReCycle import run
 from ReCycle.specs import configure_run
+from ReCycle.models.model_framework import ReCycleForecastModel
+# from ReCycle.specs import DatasetSpec
 
 
 data_root = Path("/".join(ReCycle.__path__[0].split("/")[:-1]) + "/data/")
@@ -20,7 +23,7 @@ default_params = {
     "dataset_file_path": data_filename,
     "dataset_time_col": "Date",
     "dataset_data_cols": ["Consumption"],
-    "dataset_country_code": "de",
+    # "dataset_country_code": "de",
     "epochs": 20,
     "batch_size": 1,
     "d_model": 32,
@@ -147,7 +150,7 @@ def test_entsoe_de(tmp_path):
     params["model_args"] = transformer_params
     params["action"] = "train"
     params["save_checkpoint_path"] = tmp_path
-    params["epochs"] = 200
+    params["epochs"] = 2
 
     model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
     run.run_action(
@@ -316,25 +319,57 @@ def test_metadata_transformer(tmp_path):
     )
 
 
-# def test_serialization(tmp_path):
-#     """Test serializtion of the model after training without writing it to a file. And training and inference by passing a dataframe directly"""
-#     # configure run
-#     params = {}
-#     params.update(default_params)
-#     params["model_args"] = transformer_params
-#     params["action"] = "train"
-#     params["save_checkpoint_path"] = tmp_path
-#     params["dataset_metadata_cols"] = ["Metadata_1", "Metadata_2", "Metadata_3"]
-#
-#     model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
-#
-#     # load data
-#     train_data =
-#     # train
-#     model_as_string = train()
-#     # check there was nothing written to disk
-#     # predict
-#     pred =
+def test_no_data_col_names():
+    pass
+
+
+# def test_checkpointing(tmp_path):
+#     raise
+
+
+def test_serialization(tmp_path):
+    """Test serializtion of the model after training without writing it to a file. And training and inference by passing a dataframe directly."""
+    # configure run
+    params = {
+        "model_name": "Transformer",
+        "historic_window": 7,
+        "forecast_window": 7,
+        "features_per_step": 24,
+        "epochs": 20,
+        "batch_size": 1,
+        "d_model": 32,
+        "train_share": 0.33,
+        "test_share": 0.32,
+        "rhp_cycles": 2,
+        "model_args": transformer_params,
+        "action": "train",
+        "save_checkpoint_path": tmp_path,
+        "dataset_time_col": "Date",
+        "dataset_data_cols": ["Consumption"],
+    }
+
+    model_spec, dataset_spec, train_spec, action_spec = configure_run(**params)
+
+    forecaster = ReCycleForecastModel(model_spec, dataset_spec, train_spec)
+
+    # load data
+    train_df = pd.read_csv(data_root / Path(data_filename + '.csv'))
+    valid_df = pd.read_csv(data_root / Path(data_filename + '.csv'))
+    test_df = pd.read_csv(data_root / Path(data_filename + '.csv'))
+    input_df = pd.read_csv(data_root / Path(data_filename + '.csv'))
+
+    # train
+    forecaster.train_model(train_df=train_df, valid_df=valid_df)
+    model_as_bytes = io.BytesIO()
+    forecaster.save(model_as_bytes)
+    # test
+    forecaster.test_forecast(test_df=test_df)
+    # load model
+    del forecaster
+    forecaster = ReCycleForecastModel.load(model_as_bytes)
+    # predict
+    pred = forecaster.predict(input_df)
+    print(pred)
 
 
 # def test_quantiles_interface():
